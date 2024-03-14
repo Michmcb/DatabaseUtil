@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <Version>0.1</Version>
+    <Authors>Michael McBride</Authors>
+    <Company></Company>
+    <Product>DbUtil.SourceGen</Product>
+    <Description></Description>
+    <PackageProjectUrl>https://github.com/Michmcb/DbUtil</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Michmcb/DbUtil</RepositoryUrl>
+    <RepositoryType>Github</RepositoryType>
+    <PackageTags>generator, codegen, codegenerator, database, library</PackageTags>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageIconUrl />
+    <Title>DbUtil.SourceGen</Title>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="*" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="*" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.*" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="@(ResolvedCompileFileDefinitions)" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+</Project>
