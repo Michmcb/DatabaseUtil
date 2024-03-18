@@ -26,11 +26,16 @@ namespace DatabaseUtil.Test
 			using (SqlCommand cmd = cn.CreateCommand())
 			{
 				var p = cmd.Params();
-				p.Add("Name1", 1);
-				p.Add("Name2", "Two", ParameterDirection.Output);
-				p.Add("Name3", 3.30m, 3, 5);
-				p.Add("Name4", 5.12345m, ParameterDirection.ReturnValue, 5, 5);
+				p.Add("Name1", 1, out var p1);
+				p.Add("Name2", "Two", ParameterDirection.Output, out var p2);
+				p.Add("Name3", 3.30m, 3, 5, out var p3);
+				p.Add("Name4", 5.12345m, ParameterDirection.ReturnValue, 5, 5, out var p4);
 				Assert.Equal(4, cmd.Parameters.Count);
+				Assert.Same(p1, cmd.Parameters[0]);
+				Assert.Same(p2, cmd.Parameters[1]);
+				Assert.Same(p3, cmd.Parameters[2]);
+				Assert.Same(p4, cmd.Parameters[3]);
+
 				AssertDbParamEqual("Name1", 1, ParameterDirection.Input, 0, 0, cmd.Parameters[0]);
 				AssertDbParamEqual("Name2", "Two", ParameterDirection.Output, 0, 0, cmd.Parameters[1]);
 				AssertDbParamEqual("Name3", 3.30m, ParameterDirection.Input, 3, 5, cmd.Parameters[2]);
@@ -39,11 +44,16 @@ namespace DatabaseUtil.Test
 			using (SqlCommand cmd = cn.CreateCommand())
 			{
 				var p = ((IDbCommand)cmd).Params();
-				p.Add("Name1", 1);
-				p.Add("Name2", "Two", ParameterDirection.Output);
-				p.Add("Name3", 3.30m, 3, 5);
-				p.Add("Name4", 5.12345m, ParameterDirection.ReturnValue, 5, 5);
+				p.Add("Name1", 1, out var p1);
+				p.Add("Name2", "Two", ParameterDirection.Output, out var p2);
+				p.Add("Name3", 3.30m, 3, 5, out var p3);
+				p.Add("Name4", 5.12345m, ParameterDirection.ReturnValue, 5, 5, out var p4);
 				Assert.Equal(4, cmd.Parameters.Count);
+				Assert.Same(p1, cmd.Parameters[0]);
+				Assert.Same(p2, cmd.Parameters[1]);
+				Assert.Same(p3, cmd.Parameters[2]);
+				Assert.Same(p4, cmd.Parameters[3]);
+
 				AssertDbParamEqual("Name1", 1, ParameterDirection.Input, 0, 0, cmd.Parameters[0]);
 				AssertDbParamEqual("Name2", "Two", ParameterDirection.Output, 0, 0, cmd.Parameters[1]);
 				AssertDbParamEqual("Name3", 3.30m, ParameterDirection.Input, 3, 5, cmd.Parameters[2]);

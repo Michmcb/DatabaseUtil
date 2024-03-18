@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
 	  <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <Version>0.1</Version>
+    <Version>0.2</Version>
     <Authors>Michael McBride</Authors>
     <Company></Company>
     <Product>DatabaseUtil</Product>
@@ -14,12 +14,13 @@
     <RepositoryUrl>https://github.com/Michmcb/DatabaseUtil</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>database</PackageTags>
-    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageReleaseNotes>- ParamsDbCommand and ParamsIDbCommand provide the added Parameter as an out parameter</PackageReleaseNotes>
     <PackageIconUrl />
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Title>DatabaseUtil</Title>
     <PackageIcon>icon.png</PackageIcon>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +29,13 @@
       <PackagePath>\</PackagePath>
     </None>
     <None Include="..\icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>

@@ -24,11 +24,27 @@ namespace DatabaseUtil.SourceGen.Test
 	public enum ShortEnum : short { }
 	public enum LongEnum : long { }
 	[DbRecord]
-	public sealed record class TestRecord([HasName("MyNumber")] long Number);
+	public sealed class TestRecord
+	{
+		public TestRecord([HasName("MyNumber")] long number)
+		{
+			Number = number;
+		}
+		public long Number { get; }
+	}
+	[DbRecord]
+	public readonly struct TestRecord2
+	{
+		public TestRecord2([HasName("MyNumber")] long number)
+		{
+			Number = number;
+		}
+		public long Number { get; }
+	}
 	[DbRecord(ReadBy.Ordinal)]
 	public sealed record class Blah
 	(
-		[HasOrdinal(2)]bool Boolean,
+		[HasOrdinal(2)] bool Boolean,
 		byte Byte,
 		short Short,
 		int Int,
@@ -81,7 +97,7 @@ namespace DatabaseUtil.SourceGen.Test
 				using var reader = cmd2.ExecuteReader();
 				List<TestRecord> results = dbReader.ReadAllTestRecord(reader).ToList();
 				Assert.Collection(results,
-					x => Assert.Equal(1, x.Number),
+					x => Assert.Equal(x.Number, 1),
 					x => Assert.Equal(2, x.Number),
 					x => Assert.Equal(3, x.Number));
 			}
@@ -91,6 +107,33 @@ namespace DatabaseUtil.SourceGen.Test
 				TestRecord? result = dbReader.ReadFirstOrDefaultTestRecord(reader);
 				Assert.NotNull(result);
 				Assert.Equal(1, result.Number);
+			}
+		}
+		[Fact]
+		public static void Test2()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			using (var cmd1 = cn.GetCommand("create table Tbl(MyNumber int not null);insert into Tbl(MyNumber)values(1),(2),(3);"))
+			{
+				cmd1.ExecuteNonQuery();
+			}
+			DbReader dbReader = new();
+			using (var cmd2 = cn.GetCommand("select MyNumber from Tbl order by MyNumber asc;"))
+			{
+				using var reader = cmd2.ExecuteReader();
+				var results = dbReader.ReadAllTestRecord2(reader).ToList();
+				Assert.Collection(results,
+					x => Assert.Equal(1, x.Number),
+					x => Assert.Equal(2, x.Number),
+					x => Assert.Equal(3, x.Number));
+			}
+			using (var cmd2 = cn.GetCommand("select MyNumber from Tbl order by MyNumber asc;"))
+			{
+				using var reader = cmd2.ExecuteReader();
+				TestRecord2? result = dbReader.ReadFirstOrDefaultTestRecord2(reader);
+				Assert.NotNull(result);
+				Assert.Equal(1, result.Value.Number);
 			}
 		}
 	}
