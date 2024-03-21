@@ -18,6 +18,7 @@ public static class Error
 	public const string WrongAttributeDecorated = P + "0009";
 	public const string ClassNotPartial = P + "0010";
 	public const string OnlyOneCtorAllowed = P + "0011";
+	public const string MissingConverterMethod = P + "0012";
 
 	public const string CannotGetSymbol = P + "9998";
 }

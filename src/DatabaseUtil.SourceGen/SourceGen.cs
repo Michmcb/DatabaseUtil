@@ -16,12 +16,13 @@ using System.Threading;
 [Generator]
 public sealed class SourceGen : ISourceGenerator
 {
-	private static readonly Attrib DbRecordReader = Attrib.New("DbRecordReaderAttribute", "DatabaseUtil.");
-	private static readonly Attrib DbGetField = Attrib.New("DbGetFieldAttribute", "DatabaseUtil.");
-	private static readonly Attrib DbRecord = Attrib.New("DbRecordAttribute", "DatabaseUtil.");
-	private static readonly Attrib DbParams = Attrib.New("DbParamsAttribute", "DatabaseUtil.");
-	private static readonly Attrib HasName = Attrib.New("HasNameAttribute", "DatabaseUtil.");
-	private static readonly Attrib HasOrdinal = Attrib.New("HasOrdinalAttribute", "DatabaseUtil.");
+	private static readonly Attrib DbRecordReader = Attrib.New("DbRecordReader", "DatabaseUtil.");
+	private static readonly Attrib DbGetField = Attrib.New("DbGetField", "DatabaseUtil.");
+	private static readonly Attrib DbRecord = Attrib.New("DbRecord", "DatabaseUtil.");
+	private static readonly Attrib DbConverter = Attrib.New("DbConverter", "DatabaseUtil.");
+	private static readonly Attrib DbParams = Attrib.New("DbParams", "DatabaseUtil.");
+	private static readonly Attrib HasName = Attrib.New("HasName", "DatabaseUtil.");
+	private static readonly Attrib HasOrdinal = Attrib.New("HasOrdinal", "DatabaseUtil.");
 	public void Initialize(GeneratorInitializationContext context)
 	{
 		context.RegisterForPostInitialization((x) =>
@@ -124,15 +125,22 @@ public sealed class SourceGen : ISourceGenerator
 
 
 "\t/// <summary>\n" +
+"\t/// Decorating a property on a class that's also decorated with <see cref=\"" + DbRecordReader.FullName + "\"/> will cause it to be used to convert types to and from database and .net.\n" +
+"\t/// </summary>\n" +
+"\t[AttributeUsage(AttributeTargets.Property)]\n" +
+"\tinternal sealed class " + DbConverter.FullName + " : Attribute { }\n" +
+
+
+"\t/// <summary>\n" +
 "\t/// Decorating a method on a class that's also decorated with <see cref=\"" + DbParams.FullName + "\"/> will implement the <see cref=\"IDbParams\"/> interface, and set all properties as parameters.\n" +
 "\t/// </summary>\n" +
 "\t[AttributeUsage(AttributeTargets.Class)]\n" +
 "\tinternal sealed class " + DbParams.FullName + " : Attribute { }\n" +
 "}", Encoding.UTF8));
 		});
-		//#if DEBUG
-		//		if (!System.Diagnostics.Debugger.IsAttached) { System.Diagnostics.Debugger.Launch(); }
-		//#endif
+//#if DEBUG
+//		if (!System.Diagnostics.Debugger.IsAttached) { System.Diagnostics.Debugger.Launch(); }
+//#endif
 	}
 	public string FullyQualifiedName(ISymbol sym)
 	{
@@ -144,26 +152,49 @@ public sealed class SourceGen : ISourceGenerator
 	}
 	public void Execute(GeneratorExecutionContext context)
 	{
-		Dictionary<ITypeSymbol, ReadMethod> allReadMethods = new(SymbolEqualityComparer.Default)
+		Dictionary<ITypeSymbol, string> builtInReadMethods = new(SymbolEqualityComparer.Default)
 		{
-			[context.Compilation.GetSpecialType(SpecialType.System_Boolean)] = new(nameof(DbDataReader.GetBoolean), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Byte)] = new(nameof(DbDataReader.GetByte), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Int16)] = new(nameof(DbDataReader.GetInt16), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Int32)] = new(nameof(DbDataReader.GetInt32), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Int64)] = new(nameof(DbDataReader.GetInt64), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Single)] = new(nameof(DbDataReader.GetFloat), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Double)] = new(nameof(DbDataReader.GetDouble), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Decimal)] = new(nameof(DbDataReader.GetDecimal), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Char)] = new(nameof(DbDataReader.GetChar), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_String)] = new(nameof(DbDataReader.GetString), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_DateTime)] = new(nameof(DbDataReader.GetDateTime), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Object)] = new(nameof(DbDataReader.GetValue), true),
+			[context.Compilation.GetSpecialType(SpecialType.System_Boolean)] = nameof(DbDataReader.GetBoolean),
+			[context.Compilation.GetSpecialType(SpecialType.System_Byte)] = nameof(DbDataReader.GetByte),
+			[context.Compilation.GetSpecialType(SpecialType.System_Int16)] = nameof(DbDataReader.GetInt16),
+			[context.Compilation.GetSpecialType(SpecialType.System_Int32)] = nameof(DbDataReader.GetInt32),
+			[context.Compilation.GetSpecialType(SpecialType.System_Int64)] = nameof(DbDataReader.GetInt64),
+			[context.Compilation.GetSpecialType(SpecialType.System_Single)] = nameof(DbDataReader.GetFloat),
+			[context.Compilation.GetSpecialType(SpecialType.System_Double)] = nameof(DbDataReader.GetDouble),
+			[context.Compilation.GetSpecialType(SpecialType.System_Decimal)] = nameof(DbDataReader.GetDecimal),
+			[context.Compilation.GetSpecialType(SpecialType.System_Char)] = nameof(DbDataReader.GetChar),
+			[context.Compilation.GetSpecialType(SpecialType.System_String)] = nameof(DbDataReader.GetString),
+			[context.Compilation.GetSpecialType(SpecialType.System_DateTime)] = nameof(DbDataReader.GetDateTime),
+			[context.Compilation.GetSpecialType(SpecialType.System_Object)] = nameof(DbDataReader.GetValue),
 		};
 		{
 			INamedTypeSymbol? guidType = context.Compilation.GetTypeByMetadataName(typeof(Guid).FullName);
 			if (guidType != null)
 			{
-				allReadMethods[guidType] = new(nameof(DbDataReader.GetGuid), true);
+				builtInReadMethods[guidType] = nameof(DbDataReader.GetGuid);
+			}
+		}
+
+		Dictionary<ITypeSymbol, ReadMethod> allReadMethods = new(SymbolEqualityComparer.Default)
+		{
+			[context.Compilation.GetSpecialType(SpecialType.System_Boolean)] = new(nameof(DbDataReader.GetBoolean), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Byte)] = new(nameof(DbDataReader.GetByte), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Int16)] = new(nameof(DbDataReader.GetInt16), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Int32)] = new(nameof(DbDataReader.GetInt32), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Int64)] = new(nameof(DbDataReader.GetInt64), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Single)] = new(nameof(DbDataReader.GetFloat), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Double)] = new(nameof(DbDataReader.GetDouble), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Decimal)] = new(nameof(DbDataReader.GetDecimal), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Char)] = new(nameof(DbDataReader.GetChar), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_String)] = new(nameof(DbDataReader.GetString), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_DateTime)] = new(nameof(DbDataReader.GetDateTime), true, null),
+			[context.Compilation.GetSpecialType(SpecialType.System_Object)] = new(nameof(DbDataReader.GetValue), true, null),
+		};
+		{
+			INamedTypeSymbol? guidType = context.Compilation.GetTypeByMetadataName(typeof(Guid).FullName);
+			if (guidType != null)
+			{
+				allReadMethods[guidType] = new(nameof(DbDataReader.GetGuid), true, null);
 			}
 		}
 
@@ -184,8 +215,8 @@ public sealed class SourceGen : ISourceGenerator
 					DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), targetClass.Identifier.ToString()));
 				continue;
 			}
-			SemanticModel smTargetClass = context.Compilation.GetSemanticModel(targetClass.SyntaxTree);
-			ISymbol? symTargetClass = smTargetClass.GetDeclaredSymbol(targetClass);
+			SemanticModel sm = context.Compilation.GetSemanticModel(targetClass.SyntaxTree);
+			ISymbol? symTargetClass = sm.GetDeclaredSymbol(targetClass);
 			if (symTargetClass == null)
 			{
 				context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.CannotGetSymbol, title: "Could not get symbol",
@@ -260,7 +291,7 @@ public sealed class SourceGen : ISourceGenerator
 				.OfType<MethodDeclarationSyntax>()
 				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => DbGetField.Names.Contains(a.Name.ToString())))))
 			{
-				IMethodSymbol? symFieldReaderMethod = smTargetClass.GetDeclaredSymbol(fieldReaderMethod);
+				IMethodSymbol? symFieldReaderMethod = sm.GetDeclaredSymbol(fieldReaderMethod);
 				if (symFieldReaderMethod != null)
 				{
 					// The first parameter has to be IDataRecord, or derive from it
@@ -271,7 +302,7 @@ public sealed class SourceGen : ISourceGenerator
 						&& symFieldReaderMethod.Parameters[1].Type.SpecialType == SpecialType.System_Int32
 						&& ImplementsInterface(requiredFirstParamImpl, symFieldReaderMethod.Parameters[0].Type))
 					{
-						allReadMethods[symFieldReaderMethod.ReturnType] = new(symFieldReaderMethod.Name, false);
+						allReadMethods[symFieldReaderMethod.ReturnType] = new(symFieldReaderMethod.Name, false, null);
 					}
 					else
 					{
@@ -286,6 +317,49 @@ public sealed class SourceGen : ISourceGenerator
 					context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.CannotGetSymbol, title: "Could not get symbol",
 						messageFormat: "Could not get symbol for method {0}.",
 						DiagCat.InternalError, DiagnosticSeverity.Error, isEnabledByDefault: true), fieldReaderMethod.GetLocation(), fieldReaderMethod.Identifier.ToString()));
+				}
+			}
+			
+			Dictionary<ITypeSymbol, ConverterMethod> allConverterMethods = new(SymbolEqualityComparer.Default);
+			{
+				foreach (var prop in targetClass
+					.DescendantNodes()
+					.OfType<PropertyDeclarationSyntax>()
+					.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => DbConverter.Names.Contains(a.Name.ToString())))))
+				{
+					var sym = sm.GetDeclaredSymbol(prop);
+					if (sym != null)
+					{
+						switch (sym.Type.TypeKind)
+						{
+							case TypeKind.Class:
+							case TypeKind.Interface:
+							case TypeKind.Struct:
+								string converterTypeName = prop.Type.ToString();
+								string converterPropertyName = prop.Identifier.ToString();
+								// TODO we need to get the methods with specific names. DbToDotNet and DotNetToDb.
+								foreach (var m in sym.Type.GetMembers()
+									.Where(x => x.Kind == SymbolKind.Method && x.Name == "DbToDotNet")
+									.OfType<IMethodSymbol>()
+									// Has to convert from 1 type to another type, both of which must be non-null
+									.Where(x => x.ReturnsVoid == false
+										&& x.ReturnType.NullableAnnotation == NullableAnnotation.NotAnnotated
+										&& x.Parameters.Length == 1
+										&& x.Parameters[0].NullableAnnotation == NullableAnnotation.NotAnnotated))
+								{
+									// Stash the target type, the name, and the type from which we convert it
+									allConverterMethods.Add(m.ReturnType, new(m.Name, converterTypeName, converterPropertyName, m.Parameters[0].Type, m.ReturnType));
+								}
+								break;
+							default:
+								// TODO wrong type
+								break;
+						}
+					}
+					else
+					{
+						// TODO couldn't get the symbol
+					}
 				}
 			}
 
@@ -305,7 +379,7 @@ public sealed class SourceGen : ISourceGenerator
 					if (symDtoClass != null)
 					{
 						Decl d = new(cls.Identifier, cls.Span, cls.SyntaxTree);
-						AddMethods(methods, allReadMethods, types, d, targetClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
+						AddMethods(methods, allReadMethods, builtInReadMethods, allConverterMethods, types, d, targetClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
 					}
 					else
 					{
@@ -335,7 +409,7 @@ public sealed class SourceGen : ISourceGenerator
 					if (symDtoClass != null)
 					{
 						Decl d = new(struc.Identifier, struc.Span, struc.SyntaxTree);
-						AddMethods(methods, allReadMethods, types, d, targetClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
+						AddMethods(methods, allReadMethods, builtInReadMethods, allConverterMethods, types, d, targetClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
 					}
 					else
 					{
@@ -363,7 +437,7 @@ public sealed class SourceGen : ISourceGenerator
 				if (symDtoRec != null)
 				{
 					Decl d = new(rec.Identifier, rec.Span, rec.SyntaxTree);
-					AddMethods(methods, allReadMethods, types, d, targetClassDecl, semanticModel, symDtoRec, rec.ParameterList, context, ct);
+					AddMethods(methods, allReadMethods, builtInReadMethods, allConverterMethods, types, d, targetClassDecl, semanticModel, symDtoRec, rec.ParameterList, context, ct);
 				}
 				else
 				{
@@ -431,6 +505,8 @@ public sealed class SourceGen : ISourceGenerator
 	public void AddMethods(
 		List<StringBuilder> methods,
 		Dictionary<ITypeSymbol, ReadMethod> allReadMethods,
+		Dictionary<ITypeSymbol, string> builtInReadMethods,
+		Dictionary<ITypeSymbol, ConverterMethod> allConverterMethods,
 		Types types,
 		Decl decl,
 		Decl targetClass,
@@ -676,37 +752,93 @@ public sealed class SourceGen : ISourceGenerator
 				mayBeNull = true;
 				pType = nts1.TypeArguments[0];
 			}
+
 			// If there's a user-defined method for this type, then use that
 			// We don't check enums YET, because the user may have a specific parser for their enum
-			if (allReadMethods.TryGetValue(pType, out dataReaderMethod))
+			if (converterTypeName.Length > 0)
 			{
-			}
-			else
-			{
-				// If we have an enum, then check the underlying type and try to get a read method for it
-				// If we can't get anything then just give up
-				if (pType.TypeKind == TypeKind.Enum && pType is INamedTypeSymbol nts2 && nts2.EnumUnderlyingType != null)
+				// TODO The problem here is that if we make, say, a pair of methods that convert to/from DateOnly/int, with signatures int FromDateOnly(DateOnly) and DateOnly ToDateOnly(int),
+				// TODO it'll think we want to read ALL ints as FromDateOnly, which doesn't really work. We can only do it if there's a method on the data reader which can read a DateOnly.
+				// TODO We may need to differentiate between read and write methods.
+				builtInReadMethods.TryGetValue(pType, out string? builtInReadMethodName);
+				if (!allConverterMethods.TryGetValue(pType, out ConverterMethod? converterMethod))
 				{
-					ITypeSymbol? pEnumType = pType;
-					cast = string.Concat("(", FullyQualifiedName(pEnumType), mayBeNull ? "?)" : ")");
-					if (allReadMethods.TryGetValue(nts2.EnumUnderlyingType, out dataReaderMethod))
+					if (pType.TypeKind == TypeKind.Enum && pType is INamedTypeSymbol nts2 && nts2.EnumUnderlyingType != null)
 					{
+						ITypeSymbol? pEnumType = pType;
+						cast = string.Concat("(", FullyQualifiedName(pEnumType), mayBeNull ? "?)" : ")");
+						builtInReadMethods.TryGetValue(nts2.EnumUnderlyingType, out builtInReadMethodName);
+						if (!allConverterMethods.TryGetValue(nts2.EnumUnderlyingType, out converterMethod))
+						{
+							if (builtInReadMethodName == null)
+							{
+								// If we can't find anything, issue an error
+								context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.MissingConverterMethod, title: "Missing converter method",
+									messageFormat: "Could not find any method on class {0} to read a field of type {1}. Add a method that returns type {1}, and accepts a single parameter, which is the type from which it converts.\"" +
+									". The first parameter can be any primitive type that is read from a IDataRecord, IDataReader, or DbDataReader.",
+									DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), converterTypeName, pEnumType.Name));
+							}
+						}
 					}
 					else
 					{
-						// If we can't find anything, issue an error
+						if (builtInReadMethodName == null)
+						{
+							context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.MissingConverterMethod, title: "Missing converter method",
+								messageFormat: "Could not find any method on class {0} to read a field of type {1}. Add a method that returns type {1}, and accepts a single parameter, which is the type from which it converts.\"" +
+								". The first parameter can be any primitive type that is read from a IDataRecord, IDataReader, or DbDataReader.",
+								DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), converterTypeName, pType.Name));
+						}
+					}
+				}
+				// We have to check for type compatibility here. Basically, if the type that we are getting from the data reader is not the same as FromType of the converter,
+				// we can't use it; and that means we are just going to use the built-in data reader type.
+				if (dataReaderMethod == null && builtInReadMethodName != null)
+				{
+					if (converterMethod != null)
+					{
+						dataReaderMethod = new ReadMethod(builtInReadMethodName, false, converterMethod);
+					}
+					else
+					{
+						dataReaderMethod = new ReadMethod(builtInReadMethodName, true, null);
+					}
+				}
+			}
+			else
+			{
+				// If there's a user-defined method for this type, then use that
+				// We don't check enums YET, because the user may have a specific parser for their enum
+				if (allReadMethods.TryGetValue(pType, out dataReaderMethod))
+				{
+				}
+				else
+				{
+					// If we have an enum, then check the underlying type and try to get a read method for it
+					// If we can't get anything then just give up
+					if (pType.TypeKind == TypeKind.Enum && pType is INamedTypeSymbol nts2 && nts2.EnumUnderlyingType != null)
+					{
+						ITypeSymbol? pEnumType = pType;
+						cast = string.Concat("(", FullyQualifiedName(pEnumType), mayBeNull ? "?)" : ")");
+						if (allReadMethods.TryGetValue(nts2.EnumUnderlyingType, out dataReaderMethod))
+						{
+						}
+						else
+						{
+							// If we can't find anything, issue an error
+							context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.MissingReadMethod, title: "Missing read method",
+								messageFormat: "Could not find any method on class {0} to read a field of type {1}. Add a method decorated with [" + DbGetField.Name + "], declared like: \"public {1} Get{1}(IDataRecord reader, int index)\"" +
+								". The first parameter can be anything that implements IDataRecord (such as IDataRecord, IDataReader, or DbDataReader).",
+								DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), targetClass.Identifier.ToString(), pEnumType.Name));
+						}
+					}
+					else
+					{
 						context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.MissingReadMethod, title: "Missing read method",
 							messageFormat: "Could not find any method on class {0} to read a field of type {1}. Add a method decorated with [" + DbGetField.Name + "], declared like: \"public {1} Get{1}(IDataRecord reader, int index)\"" +
 							". The first parameter can be anything that implements IDataRecord (such as IDataRecord, IDataReader, or DbDataReader).",
 							DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), targetClass.Identifier.ToString(), pType.Name));
 					}
-				}
-				else
-				{
-					context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.MissingReadMethod, title: "Missing read method",
-						messageFormat: "Could not find any method on class {0} to read a field of type {1}. Add a method decorated with [" + DbGetField.Name + "], declared like: \"public {1} Get{1}(IDataRecord reader, int index)\"" +
-						". The first parameter can be anything that implements IDataRecord (such as IDataRecord, IDataReader, or DbDataReader).",
-						DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), targetClass.Identifier.ToString(), pType.Name));
 				}
 			}
 
@@ -717,11 +849,21 @@ public sealed class SourceGen : ISourceGenerator
 			methodRead.Append(cast);
 			if (dataReaderMethod != null)
 			{
-				methodRead.Append(dataReaderMethod.BuiltIn ? string.Concat("reader.", dataReaderMethod.Name, "(o", parameter.CodeName, ")") : string.Concat(dataReaderMethod.Name, "(reader, o", parameter.CodeName, ")"));
+				if (dataReaderMethod.Converter != null)
+				{
+					methodRead.Append(converterPropertyName).Append('.').Append(dataReaderMethod.Converter.Name).Append('(');
+					methodRead.Append("reader.").Append(dataReaderMethod.Name).Append("(o").Append(parameter.CodeName).Append("))");
+				}
+				else
+				{
+					methodRead.Append(dataReaderMethod.BuiltIn
+						? string.Concat("reader.", dataReaderMethod.Name, "(o", parameter.CodeName, ")")
+						: string.Concat(dataReaderMethod.Name, "(reader, o", parameter.CodeName, ")"));
+				}
 			}
 			else
 			{
-				methodRead.Append("null");
+				methodRead.Append("default");
 			}
 			methodRead.Append(',');
 		}

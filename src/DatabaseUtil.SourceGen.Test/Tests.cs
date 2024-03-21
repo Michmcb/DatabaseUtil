@@ -18,11 +18,28 @@ namespace DatabaseUtil.SourceGen.Test
 	}
 
 	[DbRecordReader(DbDataReaderPref.IDataReader)]
-	public sealed partial class DbReader { }
+	public sealed partial class DbReader
+	{
+		[DbConverter]
+		public SqlConverter MyConverter { get; } = new();
+	}
+	public sealed class SqlConverter
+	{
+		public DateOnly ReadDateOnly(int dayNumber)
+		{
+			return DateOnly.FromDayNumber(dayNumber);
+		}
+		public int WriteDateOnly(DateOnly date)
+		{
+			return date.DayNumber;
+		}
+	}
 	public enum ByteEnum : byte { }
 	public enum IntEnum : int { }
 	public enum ShortEnum : short { }
 	public enum LongEnum : long { }
+	[DbRecord]
+	public sealed record class Test(int Integer);
 	[DbRecord]
 	public sealed class TestRecord
 	{
@@ -35,11 +52,11 @@ namespace DatabaseUtil.SourceGen.Test
 	[DbRecord]
 	public readonly struct TestRecord2
 	{
-		public TestRecord2([HasName("MyNumber")] long number)
+		public TestRecord2([HasName("MyDate")] DateOnly date)
 		{
-			Number = number;
+			Date = date;
 		}
-		public long Number { get; }
+		public DateOnly Date { get; }
 	}
 	[DbRecord(ReadBy.Ordinal)]
 	public sealed record class Blah
@@ -114,26 +131,26 @@ namespace DatabaseUtil.SourceGen.Test
 		{
 			using SqliteConnection cn = new("Data Source=:memory:");
 			cn.Open();
-			using (var cmd1 = cn.GetCommand("create table Tbl(MyNumber int not null);insert into Tbl(MyNumber)values(1),(2),(3);"))
+			using (var cmd1 = cn.GetCommand("create table Tbl(MyDate int not null);insert into Tbl(MyDate)values(1),(2),(3);"))
 			{
 				cmd1.ExecuteNonQuery();
 			}
 			DbReader dbReader = new();
-			using (var cmd2 = cn.GetCommand("select MyNumber from Tbl order by MyNumber asc;"))
+			using (var cmd2 = cn.GetCommand("select MyDate from Tbl order by MyDate asc;"))
 			{
 				using var reader = cmd2.ExecuteReader();
 				var results = dbReader.ReadAllTestRecord2(reader).ToList();
 				Assert.Collection(results,
-					x => Assert.Equal(1, x.Number),
-					x => Assert.Equal(2, x.Number),
-					x => Assert.Equal(3, x.Number));
+					x => Assert.Equal(new DateOnly(1, 1, 1), x.Date),
+					x => Assert.Equal(new DateOnly(1, 1, 2), x.Date),
+					x => Assert.Equal(new DateOnly(1, 1, 3), x.Date));
 			}
-			using (var cmd2 = cn.GetCommand("select MyNumber from Tbl order by MyNumber asc;"))
+			using (var cmd2 = cn.GetCommand("select MyDate from Tbl order by MyDate asc;"))
 			{
 				using var reader = cmd2.ExecuteReader();
 				TestRecord2? result = dbReader.ReadFirstOrDefaultTestRecord2(reader);
 				Assert.NotNull(result);
-				Assert.Equal(1, result.Value.Number);
+				Assert.Equal(new DateOnly(1, 1, 1), result.Value.Date);
 			}
 		}
 	}
