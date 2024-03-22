@@ -23,15 +23,15 @@ namespace DatabaseUtil.SourceGen.Test
 		[DbConverter]
 		public SqlConverter MyConverter { get; } = new();
 	}
-	public sealed class SqlConverter
+	public sealed class SqlConverter : ISqlConverter<int, DateOnly>
 	{
-		public DateOnly ReadDateOnly(int dayNumber)
+		public DateOnly DbToDotNet(int dbValue)
 		{
-			return DateOnly.FromDayNumber(dayNumber);
+			return DateOnly.FromDayNumber(dbValue);
 		}
-		public int WriteDateOnly(DateOnly date)
+		public int DotNetToDb(DateOnly dotNetValue)
 		{
-			return date.DayNumber;
+			return dotNetValue.DayNumber;
 		}
 	}
 	public enum ByteEnum : byte { }
@@ -114,7 +114,7 @@ namespace DatabaseUtil.SourceGen.Test
 				using var reader = cmd2.ExecuteReader();
 				List<TestRecord> results = dbReader.ReadAllTestRecord(reader).ToList();
 				Assert.Collection(results,
-					x => Assert.Equal(x.Number, 1),
+					x => Assert.Equal(1, x.Number),
 					x => Assert.Equal(2, x.Number),
 					x => Assert.Equal(3, x.Number));
 			}
