@@ -2,7 +2,6 @@
 
 using System.Data;
 using System.Data.Common;
-
 /// <summary>
 /// An interface to abstract adding parameters to a <see cref="DbCommand"/> or an <see cref="IDbCommand"/>.
 /// </summary>
@@ -17,5 +16,12 @@ public interface IDbParams
 	/// Adds parameters to a <see cref="DbCommand"/>.
 	/// </summary>
 	/// <param name="cmd">The command to which the parameters should be added.</param>
+#if NET8_0_OR_GREATER
+	void ApplyTo(DbCommand cmd)
+	{
+		ApplyTo((IDbCommand)cmd);
+	}
+#else
 	void ApplyTo(DbCommand cmd);
+#endif
 }

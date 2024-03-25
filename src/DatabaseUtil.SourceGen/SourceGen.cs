@@ -132,9 +132,9 @@ public sealed class SourceGen : ISourceGenerator
 "\tinternal sealed class " + Attrib.DbParams.FullName + " : Attribute { }\n" +
 "}", Encoding.UTF8));
 		});
-#if DEBUG
-		if (!System.Diagnostics.Debugger.IsAttached) { System.Diagnostics.Debugger.Launch(); }
-#endif
+//#if DEBUG
+//		if (!System.Diagnostics.Debugger.IsAttached) { System.Diagnostics.Debugger.Launch(); }
+//#endif
 	}
 	public string FullyQualifiedName(ISymbol sym)
 	{
