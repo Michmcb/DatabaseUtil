@@ -5,9 +5,11 @@ Has a bunch of useful utilities to make working with databases easier. Works bes
 # DatabaseUtil.SourceGenerator
 To use this, first create a partial class, and decorate it with the `[DbRecordReader]` attribute. This class will be the class that gets methods generated on it.
 
-Then, decorate record classes or structs with `[DbRecord]`. For every record you decorate, methods will be generated on the class decorated with `[DbRecordReader]`. These methods get column ordinals, read a single row, read the first or default row, or read an enumerable of rows.
+Then, decorate classes or structs with `[DbRecord]`. For every class or struct you decorate, methods will be generated on the class decorated with `[DbRecordReader]`. These methods get column ordinals, read a single row, read the first or default row, or read an enumerable of rows.
 
-If you have any custom types in your classes/structs decorated with `[DbRecord]`, then all you need to do is create a compliant method on the class `[DbRecordReader]` and decorate that method with `[DbGetField]`. The method must return the custom type, the first parameter must be something that implements `IDataRecord`, and the second parameter must be `int`.
+Ideally, decorate records. If not, ensure that the class or struct has only one constructor. Otherwise, you will get an error.
+
+If you have any custom types in your classes/structs decorated with `[DbRecord]`, then all you need to do is create a property of type `ISqlConverter<TDb, TNet>` on the class `[DbRecordReader]` and decorate that method with `[DbConverter]`.
 
 You can also override built-in type parsing by doing the same as the above. Enums are read as their underlying integer type.
 
