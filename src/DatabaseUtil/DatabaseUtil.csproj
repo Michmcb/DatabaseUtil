@@ -14,7 +14,9 @@
     <RepositoryUrl>https://github.com/Michmcb/DatabaseUtil</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>database</PackageTags>
-    <PackageReleaseNotes>- ParamsDbCommand and ParamsIDbCommand provide the added Parameter as an out parameter</PackageReleaseNotes>
+    <PackageReleaseNotes>- ISqlConverter added to convert between Database and .net values.
+- IDbParamsApplicator added to apply an object to an IDbCommand or DbCommand as parameters. IDbParams will be removed, eventually. This is so it will be easier to use ISqlConverters.
+- Fixed extension method ExecuteNonQuery for IDbConection accepting DbTransaction instead of IDbTransaction</PackageReleaseNotes>
     <PackageIconUrl />
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Title>DatabaseUtil</Title>

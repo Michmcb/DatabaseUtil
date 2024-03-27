@@ -14,7 +14,8 @@
     <RepositoryUrl>https://github.com/Michmcb/DbUtil</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>generator, codegen, codegenerator, database, library</PackageTags>
-    <PackageReleaseNotes>- Source Generator works on standard classes and structs now, but there must be only 1 constructor</PackageReleaseNotes>
+    <PackageReleaseNotes>- DbConverter can be used instead of DbGetField, and is preferred
+- Diagnostics are improved</PackageReleaseNotes>
     <PackageIconUrl />
     <Title>DbUtil.SourceGen</Title>
     <IncludeBuildOutput>false</IncludeBuildOutput>
