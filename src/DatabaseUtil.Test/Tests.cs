@@ -2,7 +2,6 @@ namespace DatabaseUtil.Test
 {
 	using Microsoft.Data.Sqlite;
 	using System;
-	using System.Collections;
 	using System.Collections.Generic;
 	using System.Data;
 	using System.Data.Common;
@@ -23,6 +22,35 @@ namespace DatabaseUtil.Test
 		public static void DbParams()
 		{
 			using SqlConnection cn = new();
+			using (SqlCommand cmd = cn.CreateCommand())
+			{
+				var p = cmd.Params();
+				p.Add("Name1", 1);
+				p.Add("Name2", "Two", ParameterDirection.Output);
+				p.Add("Name3", 3.30m, 3, 5);
+				p.Add("Name4", 5.12345m, ParameterDirection.ReturnValue, 5, 5);
+				Assert.Equal(4, cmd.Parameters.Count);
+
+				AssertDbParamEqual("Name1", 1, ParameterDirection.Input, 0, 0, cmd.Parameters[0]);
+				AssertDbParamEqual("Name2", "Two", ParameterDirection.Output, 0, 0, cmd.Parameters[1]);
+				AssertDbParamEqual("Name3", 3.30m, ParameterDirection.Input, 3, 5, cmd.Parameters[2]);
+				AssertDbParamEqual("Name4", 5.12345m, ParameterDirection.ReturnValue, 5, 5, cmd.Parameters[3]);
+			}
+			using (SqlCommand cmd = cn.CreateCommand())
+			{
+				var p = ((IDbCommand)cmd).Params();
+				p.Add("Name1", 1);
+				p.Add("Name2", "Two", ParameterDirection.Output);
+				p.Add("Name3", 3.30m, 3, 5);
+				p.Add("Name4", 5.12345m, ParameterDirection.ReturnValue, 5, 5);
+				Assert.Equal(4, cmd.Parameters.Count);
+
+				AssertDbParamEqual("Name1", 1, ParameterDirection.Input, 0, 0, cmd.Parameters[0]);
+				AssertDbParamEqual("Name2", "Two", ParameterDirection.Output, 0, 0, cmd.Parameters[1]);
+				AssertDbParamEqual("Name3", 3.30m, ParameterDirection.Input, 3, 5, cmd.Parameters[2]);
+				AssertDbParamEqual("Name4", 5.12345m, ParameterDirection.ReturnValue, 5, 5, cmd.Parameters[3]);
+			}
+
 			using (SqlCommand cmd = cn.CreateCommand())
 			{
 				var p = cmd.Params();
