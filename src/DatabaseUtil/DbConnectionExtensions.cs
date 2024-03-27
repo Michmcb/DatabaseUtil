@@ -200,7 +200,7 @@ public static class DbConnectionExtensions
 	/// <param name="commandTimeout">The <see cref="IDbCommand.CommandTimeout"/>. If equal to <see cref="int.MinValue"/>, not set.</param>
 	/// <param name="commandType">The <see cref="IDbCommand.Transaction"/>.</param>
 	/// <returns>The created command.</returns>
-	public static int ExecuteNonQuery(this IDbConnection connection, string sql, IDbParams? parameters = null, DbTransaction? transaction = null, int commandTimeout = int.MinValue, CommandType commandType = CommandType.Text)
+	public static int ExecuteNonQuery(this IDbConnection connection, string sql, IDbParams? parameters = null, IDbTransaction? transaction = null, int commandTimeout = int.MinValue, CommandType commandType = CommandType.Text)
 	{
 		using IDbCommand cmd = connection.CreateCommand();
 		cmd.CommandText = sql;
@@ -221,7 +221,7 @@ public static class DbConnectionExtensions
 	/// <param name="commandTimeout">The <see cref="IDbCommand.CommandTimeout"/>. If equal to <see cref="int.MinValue"/>, not set.</param>
 	/// <param name="commandType">The <see cref="IDbCommand.Transaction"/>.</param>
 	/// <returns>The created command.</returns>
-	public static object? ExecuteScalar(this IDbConnection connection, string sql, IDbParams? parameters = null, DbTransaction? transaction = null, int commandTimeout = int.MinValue, CommandType commandType = CommandType.Text)
+	public static object? ExecuteScalar(this IDbConnection connection, string sql, IDbParams? parameters = null, IDbTransaction? transaction = null, int commandTimeout = int.MinValue, CommandType commandType = CommandType.Text)
 	{
 		using IDbCommand cmd = connection.CreateCommand();
 		cmd.CommandText = sql;

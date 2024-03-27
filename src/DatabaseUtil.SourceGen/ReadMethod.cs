@@ -1,5 +1,4 @@
 ﻿namespace DatabaseUtil.SourceGen;
-
 public sealed class ReadMethod
 {
 	public ReadMethod(string name, bool builtIn)
