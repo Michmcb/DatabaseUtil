@@ -5,7 +5,7 @@ Then, decorate classes or structs with `[DbRecord]`. For every class or struct y
 
 Ideally, decorate records. If not, ensure that the class or struct has only one constructor. Otherwise, you will get an error.
 
-If you have any custom types in your classes/structs decorated with `[DbRecord]`, then all you need to do is create a compliant method on the class `[DbRecordReader]` and decorate that method with `[DbGetField]`. The method must return the custom type, the first parameter must be something that implements `IDataRecord`, and the second parameter must be `int`.
+If you have any custom types in your classes/structs decorated with `[DbRecord]`, then all you need to do is create a property of type `ISqlConverter<TDb, TNet>` on the class `[DbRecordReader]` and decorate that method with `[DbConverter]`.
 
 You can also override built-in type parsing by doing the same as the above. Enums are read as their underlying integer type.
 
