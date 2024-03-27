@@ -4,25 +4,28 @@ using System.Data;
 using System.Data.Common;
 
 /// <summary>
-/// An interface to abstract adding parameters to a <see cref="DbCommand"/> or an <see cref="IDbCommand"/>.
+/// An interface that applies parameters of type <typeparamref name="T"/> to <see cref="DbCommand"/> or an <see cref="IDbCommand"/>.
 /// </summary>
-public interface IDbParams
+
+public interface IDbParamsApplicator<T>
 {
 	/// <summary>
 	/// Adds parameters to an <see cref="IDbCommand"/>.
 	/// </summary>
+	/// <param name="p">The parameters.</param>
 	/// <param name="cmd">The command to which the parameters should be added.</param>
-	void ApplyTo(IDbCommand cmd);
+	void ApplyTo(T p, IDbCommand cmd);
 	/// <summary>
 	/// Adds parameters to a <see cref="DbCommand"/>.
 	/// </summary>
+	/// <param name="p">The parameters.</param>
 	/// <param name="cmd">The command to which the parameters should be added.</param>
 #if NET8_0_OR_GREATER
-	void ApplyTo(DbCommand cmd)
+	void ApplyTo(T p, DbCommand cmd)
 	{
-		ApplyTo((IDbCommand)cmd);
+		ApplyTo(p, (IDbCommand)cmd);
 	}
 #else
-	void ApplyTo(DbCommand cmd);
+	void ApplyTo(p, DbCommand cmd);
 #endif
 }
