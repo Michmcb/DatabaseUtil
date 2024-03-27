@@ -26,13 +26,13 @@ public static class Diag
 	private const string converterWrongTypeKind = P + "0013";
 	private const string cannotGetSymbol = P + "9998";
 	//private const string somethingButIDontRemberWhatItWas = P + "9999";
-	public static Diagnostic MissingReadMethod(Location location, string className, string typeName)
-	{
-		return Diagnostic.Create(new DiagnosticDescriptor(id: missingReadMethod, title: "Missing read method",
-			messageFormat: "Could not find any method on class {0} to read a field of type {1}. Add a method decorated with [" + Attrib.DbGetField.Name + "], declared like: \"public {1} Get{1}(IDataRecord reader, int index)\"" +
-			". The first parameter can be anything that implements IDataRecord (such as IDataRecord, IDataReader, or DbDataReader).",
-			Cat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), location, className, typeName);
-	}
+	//public static Diagnostic MissingReadMethod(Location location, string className, string typeName)
+	//{
+	//	return Diagnostic.Create(new DiagnosticDescriptor(id: missingReadMethod, title: "Missing read method",
+	//		messageFormat: "Could not find any method on class {0} to read a field of type {1}. Add a method decorated with [" + Attrib.DbGetField.Name + "], declared like: \"public {1} Get{1}(IDataRecord reader, int index)\"" +
+	//		". The first parameter can be anything that implements IDataRecord (such as IDataRecord, IDataReader, or DbDataReader).",
+	//		Cat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), location, className, typeName);
+	//}
 	public static Diagnostic MalformedReadMethod(Location location, string className, string methodName)
 	{
 		return Diagnostic.Create(new DiagnosticDescriptor(id: malformedReadMethod, title: "Malformed read method",

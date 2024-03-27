@@ -110,15 +110,6 @@ public sealed class SourceGen : ISourceGenerator
 
 
 "\t/// <summary>\n" +
-"\t/// Decorating a method on a class that's also decorated with <see cref=\"" + Attrib.DbRecordReader.FullName + "\"/> will cause it to be used to read fields of\n" +
-"\t/// the decorated method's return type from <see cref=\"IDataRecord\"/>. Methods decorated with this attribute take precedence over any native methods on <see cref=\"IDataRecord\"/>.\n" +
-"\t/// </summary>\n" +
-"\t[AttributeUsage(AttributeTargets.Method)]\n" +
-"\t[Obsolete(\"Use DbConverters instead\")]\n" +
-"\tinternal sealed class " + Attrib.DbGetField.FullName + " : Attribute { }\n" +
-
-
-"\t/// <summary>\n" +
 "\t/// Decorating a property on a class that's also decorated with <see cref=\"" + Attrib.DbRecordReader.FullName + "\"/> will cause it to be used to convert types to and from database and .net.\n" +
 "\t/// </summary>\n" +
 "\t[AttributeUsage(AttributeTargets.Property)]\n" +
@@ -166,29 +157,6 @@ public sealed class SourceGen : ISourceGenerator
 			if (guidType != null)
 			{
 				builtInReadMethods[guidType] = nameof(DbDataReader.GetGuid);
-			}
-		}
-
-		Dictionary<ITypeSymbol, ReadMethod> allReadMethods = new(SymbolEqualityComparer.Default)
-		{
-			[context.Compilation.GetSpecialType(SpecialType.System_Boolean)] = new(nameof(DbDataReader.GetBoolean), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Byte)] = new(nameof(DbDataReader.GetByte), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Int16)] = new(nameof(DbDataReader.GetInt16), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Int32)] = new(nameof(DbDataReader.GetInt32), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Int64)] = new(nameof(DbDataReader.GetInt64), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Single)] = new(nameof(DbDataReader.GetFloat), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Double)] = new(nameof(DbDataReader.GetDouble), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Decimal)] = new(nameof(DbDataReader.GetDecimal), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Char)] = new(nameof(DbDataReader.GetChar), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_String)] = new(nameof(DbDataReader.GetString), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_DateTime)] = new(nameof(DbDataReader.GetDateTime), true),
-			[context.Compilation.GetSpecialType(SpecialType.System_Object)] = new(nameof(DbDataReader.GetValue), true),
-		};
-		{
-			INamedTypeSymbol? guidType = context.Compilation.GetTypeByMetadataName(typeof(Guid).FullName);
-			if (guidType != null)
-			{
-				allReadMethods[guidType] = new(nameof(DbDataReader.GetGuid), true);
 			}
 		}
 
@@ -276,36 +244,6 @@ public sealed class SourceGen : ISourceGenerator
 
 			StringBuilder sbTargetClassEnd = new("\t}\n}\n#nullable restore");
 
-			const string requiredFirstParamImpl = "System.Data.IDataRecord";
-			foreach (MethodDeclarationSyntax fieldReaderMethod in dbRecordReaderClass
-				.DescendantNodes()
-				.OfType<MethodDeclarationSyntax>()
-				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => Attrib.DbGetField.Names.Contains(a.Name.ToString())))))
-			{
-				IMethodSymbol? symFieldReaderMethod = sm.GetDeclaredSymbol(fieldReaderMethod);
-				if (symFieldReaderMethod != null)
-				{
-					// The first parameter has to be IDataRecord, or derive from it
-					// The second parameter has to be an integer, which represents the ordinal
-					if (symFieldReaderMethod.ReturnsVoid == false
-						&& symFieldReaderMethod.ReturnType.NullableAnnotation == NullableAnnotation.NotAnnotated
-						&& symFieldReaderMethod.Parameters.Length == 2
-						&& symFieldReaderMethod.Parameters[1].Type.SpecialType == SpecialType.System_Int32
-						&& ImplementsInterface(requiredFirstParamImpl, symFieldReaderMethod.Parameters[0].Type))
-					{
-						allReadMethods[symFieldReaderMethod.ReturnType] = new(symFieldReaderMethod.Name, false);
-					}
-					else
-					{
-						context.ReportDiagnostic(Diag.MalformedReadMethod(dbRecordReaderClass.GetLocation(), dbRecordReaderClass.Identifier.ToString(), symFieldReaderMethod.Name));
-					}
-				}
-				else
-				{
-					context.ReportDiagnostic(Diag.CannotGetSymbol(dbRecordReaderClass.GetLocation(), "method", fieldReaderMethod.Identifier.ToString()));
-				}
-			}
-
 			Dictionary<ITypeSymbol, ReadConverterMethod> readConverterMethods = new(SymbolEqualityComparer.Default);
 			//Dictionary<ITypeSymbol, ReadConverterMethod> writeConverterMethods = new(SymbolEqualityComparer.Default);
 			{
@@ -381,7 +319,7 @@ public sealed class SourceGen : ISourceGenerator
 					if (symDtoClass != null)
 					{
 						Decl d = new(cls.Identifier, cls.Span, cls.SyntaxTree);
-						AddMethods("class", methods, allReadMethods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
+						AddMethods("class", methods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
 					}
 					else
 					{
@@ -407,7 +345,7 @@ public sealed class SourceGen : ISourceGenerator
 					if (symDtoClass != null)
 					{
 						Decl d = new(struc.Identifier, struc.Span, struc.SyntaxTree);
-						AddMethods("struct", methods, allReadMethods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
+						AddMethods("struct", methods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
 					}
 					else
 					{
@@ -431,7 +369,7 @@ public sealed class SourceGen : ISourceGenerator
 				if (symDtoRec != null)
 				{
 					Decl d = new(rec.Identifier, rec.Span, rec.SyntaxTree);
-					AddMethods("record", methods, allReadMethods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoRec, rec.ParameterList, context, ct);
+					AddMethods("record", methods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoRec, rec.ParameterList, context, ct);
 				}
 				else
 				{
@@ -497,7 +435,6 @@ public sealed class SourceGen : ISourceGenerator
 	public void AddMethods(
 		string classStructOrRecord,
 		List<StringBuilder> methods,
-		Dictionary<ITypeSymbol, ReadMethod> allReadMethods,
 		Dictionary<ITypeSymbol, string> builtInReadMethods,
 		Dictionary<ITypeSymbol, ReadConverterMethod> readConverterMethods,
 		Types types,
@@ -725,7 +662,6 @@ public sealed class SourceGen : ISourceGenerator
 
 			ReadConverterMethod? converterMethod = null;
 			string? builtInReadMethod = null;
-			ReadMethod? dataReaderMethod = null;
 			string cast = "";
 			bool mayBeNull = pType.NullableAnnotation == NullableAnnotation.Annotated;
 
@@ -738,54 +674,25 @@ public sealed class SourceGen : ISourceGenerator
 
 			// If there's a user-defined method for this type, then use that
 			// We don't check enums YET, because the user may have a specific parser for their enum
-			if (readConverterMethods.Count > 0)
-			{
-				if (readConverterMethods.TryGetValue(pType, out converterMethod)) { }
-				else
-				{
-					if (builtInReadMethods.TryGetValue(pType, out builtInReadMethod)) { }
-					else if (pType.TypeKind == TypeKind.Enum && pType is INamedTypeSymbol nts2 && nts2.EnumUnderlyingType != null)
-					{
-						ITypeSymbol? pEnumType = pType;
-						cast = string.Concat("(", FullyQualifiedName(pEnumType), mayBeNull ? "?)" : ")");
-						if (readConverterMethods.TryGetValue(nts2.EnumUnderlyingType, out converterMethod)) { }
-						else if (builtInReadMethods.TryGetValue(nts2.EnumUnderlyingType, out builtInReadMethod)) { }
-						else
-						{
-							// If we can't find anything, issue an error
-							context.ReportDiagnostic(Diag.MissingConverterMethod(parameter.Syntax.GetLocation(), pEnumType.Name, recordDecl.Identifier.ToString(), dbRecordReaderClass.Identifier.ToString()));
-						}
-					}
-					else
-					{
-						context.ReportDiagnostic(Diag.MissingConverterMethod(parameter.Syntax.GetLocation(), pType.Name, recordDecl.Identifier.ToString(), dbRecordReaderClass.Identifier.ToString()));
-					}
-				}
-			}
+			if (readConverterMethods.TryGetValue(pType, out converterMethod)) { }
 			else
 			{
-				// If there's a user-defined method for this type, then use that
-				// We don't check enums YET, because the user may have a specific parser for their enum
-				if (allReadMethods.TryGetValue(pType, out dataReaderMethod)) { }
-				else
+				if (builtInReadMethods.TryGetValue(pType, out builtInReadMethod)) { }
+				else if (pType.TypeKind == TypeKind.Enum && pType is INamedTypeSymbol nts2 && nts2.EnumUnderlyingType != null)
 				{
-					// If we have an enum, then check the underlying type and try to get a read method for it
-					// If we can't get anything then just give up
-					if (pType.TypeKind == TypeKind.Enum && pType is INamedTypeSymbol nts2 && nts2.EnumUnderlyingType != null)
-					{
-						ITypeSymbol? pEnumType = pType;
-						cast = string.Concat("(", FullyQualifiedName(pEnumType), mayBeNull ? "?)" : ")");
-						if (allReadMethods.TryGetValue(nts2.EnumUnderlyingType, out dataReaderMethod)) { }
-						else
-						{
-							// If we can't find anything, issue an error
-							context.ReportDiagnostic(Diag.MissingConverterMethod(parameter.Syntax.GetLocation(), pEnumType.Name, recordDecl.Identifier.ToString(), dbRecordReaderClass.Identifier.ToString()));
-						}
-					}
+					ITypeSymbol? pEnumType = pType;
+					cast = string.Concat("(", FullyQualifiedName(pEnumType), mayBeNull ? "?)" : ")");
+					if (readConverterMethods.TryGetValue(nts2.EnumUnderlyingType, out converterMethod)) { }
+					else if (builtInReadMethods.TryGetValue(nts2.EnumUnderlyingType, out builtInReadMethod)) { }
 					else
 					{
-						context.ReportDiagnostic(Diag.MissingConverterMethod(parameter.Syntax.GetLocation(), pType.Name, recordDecl.Identifier.ToString(), dbRecordReaderClass.Identifier.ToString()));
+						// If we can't find anything, issue an error
+						context.ReportDiagnostic(Diag.MissingConverterMethod(parameter.Syntax.GetLocation(), pEnumType.Name, recordDecl.Identifier.ToString(), dbRecordReaderClass.Identifier.ToString()));
 					}
+				}
+				else
+				{
+					context.ReportDiagnostic(Diag.MissingConverterMethod(parameter.Syntax.GetLocation(), pType.Name, recordDecl.Identifier.ToString(), dbRecordReaderClass.Identifier.ToString()));
 				}
 			}
 
@@ -802,12 +709,6 @@ public sealed class SourceGen : ISourceGenerator
 			else if (builtInReadMethod != null)
 			{
 				methodRead.Append("reader.").Append(builtInReadMethod).Append("(o").Append(parameter.CodeName).Append(')');
-			}
-			else if (dataReaderMethod != null)
-			{
-				methodRead.Append(dataReaderMethod.BuiltIn
-					? string.Concat("reader.", dataReaderMethod.Name, "(o", parameter.CodeName, ")")
-					: string.Concat(dataReaderMethod.Name, "(reader, o", parameter.CodeName, ")"));
 			}
 			else
 			{
