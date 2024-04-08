@@ -10,6 +10,7 @@ using System.Collections.Immutable;
 using System.Data.Common;
 using System.Globalization;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading;
 
@@ -123,18 +124,18 @@ public sealed class SourceGen : ISourceGenerator
 "\tinternal sealed class " + Attrib.DbParams.FullName + " : Attribute { }\n" +
 "}", Encoding.UTF8));
 		});
-//#if DEBUG
-//		if (!System.Diagnostics.Debugger.IsAttached) { System.Diagnostics.Debugger.Launch(); }
-//#endif
+		//#if DEBUG
+		//		if (!System.Diagnostics.Debugger.IsAttached) { System.Diagnostics.Debugger.Launch(); }
+		//#endif
 	}
 	public string FullyQualifiedName(ISymbol sym)
 	{
 		return sym.ContainingNamespace == null ? sym.Name : string.Concat(sym.ContainingNamespace.ToString(), ".", sym.Name);
 	}
-	public bool ImplementsInterface(string interfaceName, ITypeSymbol sym)
-	{
-		return interfaceName == FullyQualifiedName(sym) || sym.Interfaces.Any(nts => ImplementsInterface(interfaceName, nts));
-	}
+	//public bool ImplementsInterface(string interfaceName, ITypeSymbol sym)
+	//{
+	//	return interfaceName == FullyQualifiedName(sym) || sym.Interfaces.Any(nts => ImplementsInterface(interfaceName, nts));
+	//}
 	public void Execute(GeneratorExecutionContext context)
 	{
 		Dictionary<ITypeSymbol, string> builtInReadMethods = new(SymbolEqualityComparer.Default)
@@ -240,12 +241,14 @@ public sealed class SourceGen : ISourceGenerator
 				"\n\tusing System.Data.Common;" +
 				"\n\tusing System.Threading.Tasks;\n\t");
 			sbTargetClassStart.Append(dbRecordReaderClass.Modifiers.ToString()).Append(" class ").Append(dbRecordReaderClass.Identifier.ToString());
-			sbTargetClassStart.Append("\n\t{\n");
+
+			string targetClassOpenBrace = "\n\t{\n";
+			List<string> targetClassInterfaces = [];
 
 			StringBuilder sbTargetClassEnd = new("\t}\n}\n#nullable restore");
 
 			Dictionary<ITypeSymbol, ReadConverterMethod> readConverterMethods = new(SymbolEqualityComparer.Default);
-			//Dictionary<ITypeSymbol, ReadConverterMethod> writeConverterMethods = new(SymbolEqualityComparer.Default);
+			Dictionary<ITypeSymbol, WriteConverterMethod> writeConverterMethods = new(SymbolEqualityComparer.Default);
 			{
 				foreach (var prop in dbRecordReaderClass
 					.DescendantNodes()
@@ -285,10 +288,12 @@ public sealed class SourceGen : ISourceGenerator
 											// TODO invalid from type; it's not found on a data reader...or we can just try GetField<T>?
 										}
 									}
-									//else if ("DotNetToDb".Equals(m.Name, StringComparison.Ordinal))
-									//{
-									//
-									//}
+									else if ("DotNetToDb".Equals(m.Name, StringComparison.Ordinal))
+									{
+										// This one is super simple. There's nothing special we need to do, since it'll just be converted to object in the end.
+										var fromType = m.Parameters[0].Type;
+										writeConverterMethods.Add(fromType, new(m.Name, converterTypeName, converterPropertyName, m.ReturnType, fromType));
+									}
 								}
 								break;
 							default:
@@ -305,58 +310,16 @@ public sealed class SourceGen : ISourceGenerator
 
 			List<StringBuilder> methods = [];
 			Decl dbRecordReaderClassDecl = new(dbRecordReaderClass.Identifier, dbRecordReaderClass.Span, dbRecordReaderClass.SyntaxTree);
-			foreach (ClassDeclarationSyntax cls in context.Compilation.SyntaxTrees
+
+			GeneratedClassAndStructDbRecordReadMethods("class", methods, builtInReadMethods, readConverterMethods, types, dbRecordReaderClassDecl, context, context.Compilation.SyntaxTrees
 				.SelectMany(x => x.GetRoot(ct).DescendantNodes())
 				.OfType<ClassDeclarationSyntax>()
-				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => Attrib.DbRecord.Names.Contains(a.Name.ToString())))))
-			{
-				var ctors = cls.DescendantNodes().OfType<ConstructorDeclarationSyntax>().ToList();
-				if (ctors.Count == 1)
-				{
-					ConstructorDeclarationSyntax ctor = ctors[0];
-					SemanticModel semanticModel = context.Compilation.GetSemanticModel(cls.SyntaxTree);
-					ISymbol? symDtoClass = semanticModel.GetDeclaredSymbol(cls);
-					if (symDtoClass != null)
-					{
-						Decl d = new(cls.Identifier, cls.Span, cls.SyntaxTree);
-						AddMethods("class", methods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
-					}
-					else
-					{
-						context.ReportDiagnostic(Diag.CannotGetSymbol(dbRecordReaderClass.GetLocation(), "class", cls.Identifier.ToString()));
-					}
-				}
-				else
-				{
-					context.ReportDiagnostic(Diag.OnlyOneCtorAllowed(cls.GetLocation(), cls.Identifier.ToString(), "class"));
-				}
-			}
-			foreach (StructDeclarationSyntax struc in context.Compilation.SyntaxTrees
+				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => Attrib.DbRecord.Names.Contains(a.Name.ToString())))), ct);
+
+			GeneratedClassAndStructDbRecordReadMethods("struct", methods, builtInReadMethods, readConverterMethods, types, dbRecordReaderClassDecl, context, context.Compilation.SyntaxTrees
 				.SelectMany(x => x.GetRoot(ct).DescendantNodes())
 				.OfType<StructDeclarationSyntax>()
-				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => Attrib.DbRecord.Names.Contains(a.Name.ToString())))))
-			{
-				var ctors = struc.DescendantNodes().OfType<ConstructorDeclarationSyntax>().ToList();
-				if (ctors.Count == 1)
-				{
-					ConstructorDeclarationSyntax ctor = ctors[0];
-					SemanticModel semanticModel = context.Compilation.GetSemanticModel(struc.SyntaxTree);
-					ISymbol? symDtoClass = semanticModel.GetDeclaredSymbol(struc);
-					if (symDtoClass != null)
-					{
-						Decl d = new(struc.Identifier, struc.Span, struc.SyntaxTree);
-						AddMethods("struct", methods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
-					}
-					else
-					{
-						context.ReportDiagnostic(Diag.CannotGetSymbol(dbRecordReaderClass.GetLocation(), "struct", struc.Identifier.ToString()));
-					}
-				}
-				else
-				{
-					context.ReportDiagnostic(Diag.OnlyOneCtorAllowed(struc.GetLocation(), struc.Identifier.ToString(), "struct"));
-				}
-			}
+				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => Attrib.DbRecord.Names.Contains(a.Name.ToString())))), ct);
 
 			// Now we get all of the records decorated with the attribute indicating that they're DTOs
 			foreach (RecordDeclarationSyntax rec in context.Compilation.SyntaxTrees
@@ -369,7 +332,56 @@ public sealed class SourceGen : ISourceGenerator
 				if (symDtoRec != null)
 				{
 					Decl d = new(rec.Identifier, rec.Span, rec.SyntaxTree);
-					AddMethods("record", methods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoRec, rec.ParameterList, context, ct);
+					GenerateDbRecordReadMethods("record", methods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoRec, rec.ParameterList, context, ct);
+				}
+				else
+				{
+					context.ReportDiagnostic(Diag.CannotGetSymbol(dbRecordReaderClass.GetLocation(), "record", rec.Identifier.ToString()));
+				}
+			}
+
+			// Now do the parameter applicators
+			GenerateClassAndStructParamMethods("class", methods, targetClassInterfaces, writeConverterMethods, dbRecordReaderClass, context, context.Compilation.SyntaxTrees
+				.SelectMany(x => x.GetRoot(ct).DescendantNodes())
+				.OfType<ClassDeclarationSyntax>()
+				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => Attrib.DbParams.Names.Contains(a.Name.ToString())))));
+
+			GenerateClassAndStructParamMethods("struct", methods, targetClassInterfaces, writeConverterMethods, dbRecordReaderClass, context, context.Compilation.SyntaxTrees
+				.SelectMany(x => x.GetRoot(ct).DescendantNodes())
+				.OfType<StructDeclarationSyntax>()
+				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => Attrib.DbParams.Names.Contains(a.Name.ToString())))));
+
+			foreach (RecordDeclarationSyntax rec in context.Compilation.SyntaxTrees
+				.SelectMany(x => x.GetRoot(ct).DescendantNodes())
+				.OfType<RecordDeclarationSyntax>()
+				.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => Attrib.DbParams.Names.Contains(a.Name.ToString())))))
+			{
+				SemanticModel semanticModel = context.Compilation.GetSemanticModel(rec.SyntaxTree);
+				ISymbol? symDtoRec = semanticModel.GetDeclaredSymbol(rec);
+				if (symDtoRec != null)
+				{
+					if (rec.ParameterList != null && rec.ParameterList.Parameters.Count != 0)
+					{
+						List<NamedTypeSymbol> parameters = new(rec.ParameterList.Parameters.Count);
+						foreach (var p in rec.ParameterList.Parameters)
+						{
+							var psym = semanticModel.GetDeclaredSymbol(p);
+							if (psym != null)
+							{
+								parameters.Add(new(p.Identifier.ToString(), psym.Type));
+							}
+							else
+							{
+								context.ReportDiagnostic(Diag.CannotGetSymbol(p.GetLocation(), "property", p.Identifier.ToString()));
+							}
+						}
+						Decl d = new(rec.Identifier, rec.Span, rec.SyntaxTree);
+						GenerateParamMethods(methods, targetClassInterfaces, writeConverterMethods, symDtoRec, new(parameters));
+					}
+					else
+					{
+						context.ReportDiagnostic(Diag.MissingDbParamProperties(dbRecordReaderClass.GetLocation(), "record", rec.Identifier.ToString()));
+					}
 				}
 				else
 				{
@@ -379,6 +391,19 @@ public sealed class SourceGen : ISourceGenerator
 
 			StringBuilder sb = new();
 			sb.Append(sbTargetClassStart);
+
+			if (targetClassInterfaces.Count > 0)
+			{
+				sb.Append(" :\n");
+				foreach (var interfaceImpl in targetClassInterfaces)
+				{
+					sb.Append("\t\t").Append(interfaceImpl).Append(",\n");
+				}
+				// Last interface implementation cannot have a trailing comma, so get rid of it
+				sb.Length -= 2;
+			}
+
+			sb.Append(targetClassOpenBrace);
 			foreach (StringBuilder m in methods)
 			{
 				sb.Append(m);
@@ -387,52 +412,161 @@ public sealed class SourceGen : ISourceGenerator
 			string source = sb.ToString();
 			context.AddSource(dbRecordReaderClass.Identifier.ToString() + ".g.cs", SourceText.From(source, Encoding.UTF8));
 		}
-		//IEnumerable<ClassDeclarationSyntax> targetParamClasses = context.Compilation.SyntaxTrees
-		//	.SelectMany(x => x.GetRoot(ct).DescendantNodes())
-		//	.OfType<ClassDeclarationSyntax>()
-		//	.Where(x => x.AttributeLists.Any(al => al.Attributes.Any(a => DbParams.Names.Contains(a.Name.ToString()))));
-		//foreach (var targetClass in targetParamClasses)
-		//{
-		//	if (targetClass == null) { continue; }
-		//	if (!targetClass.Modifiers.Any(x => x.Text == "partial"))
-		//	{
-		//		context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.ClassNotPartial, title: "Class is not partial",
-		//			messageFormat: "Class {0} must be declared as partial to have code generated for it.",
-		//			DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), targetClass.Identifier.ToString()));
-		//		continue;
-		//	}
-		//	SemanticModel smTargetClass = context.Compilation.GetSemanticModel(targetClass.SyntaxTree);
-		//	ISymbol? symTargetClass = smTargetClass.GetDeclaredSymbol(targetClass);
-		//	if (symTargetClass == null)
-		//	{
-		//		context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.CannotGetSymbol, title: "Could not get class symbol",
-		//			messageFormat: "Could not get symbol for class {0}",
-		//			DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), targetClass.Identifier.ToString()));
-		//		continue;
-		//	}
-		//	if (symTargetClass.ContainingNamespace == null)
-		//	{
-		//		context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor(id: Error.ReaderClassMissingNamespace, title: "Reader class missing namespace",
-		//			messageFormat: "Class {0} must be declared in a namespace.",
-		//			DiagCat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), targetClass.GetLocation(), targetClass.Identifier.ToString()));
-		//		continue;
-		//	}
-		//
-		//	// The issue that we have here is that the parameters may also be a type that we need to convert.
-		//	// The converter should just be an interface, really.
-		//	// The other problem is that the parameters can't implement a consistent interface if they have to take varying amounts of converters.
-		//	// Actually, the best method of doing it, is probably having a custom interface/abstract class that works as a converter to/from types.
-		//	// That way, all we need to do is pass that type along, and invoke its get method.
-		//
-		//	//var properties = targetClass.DescendantNodes().OfType<PropertyDeclarationSyntax>().ToList();
-		//
-		//	StringBuilder sb = new();
-		//
-		//	string source = sb.ToString();
-		//	context.AddSource(targetClass.Identifier.ToString() + ".g.cs", SourceText.From(source, Encoding.UTF8));
-		//}
 	}
-	public void AddMethods(
+	public void GeneratedClassAndStructDbRecordReadMethods(
+		string classOrStruct,
+		List<StringBuilder> methods,
+		Dictionary<ITypeSymbol, string> builtInReadMethods,
+		Dictionary<ITypeSymbol, ReadConverterMethod> readConverterMethods,
+		Types types,
+		Decl dbRecordReaderClassDecl,
+		GeneratorExecutionContext context,
+		IEnumerable<TypeDeclarationSyntax> objs,
+		CancellationToken ct)
+	{
+		foreach (var obj in objs)
+		{
+			var ctors = obj.DescendantNodes().OfType<ConstructorDeclarationSyntax>().ToList();
+			if (ctors.Count == 1)
+			{
+				ConstructorDeclarationSyntax ctor = ctors[0];
+				SemanticModel semanticModel = context.Compilation.GetSemanticModel(obj.SyntaxTree);
+				ISymbol? symDtoClass = semanticModel.GetDeclaredSymbol(obj);
+				if (symDtoClass != null)
+				{
+					Decl d = new(obj.Identifier, obj.Span, obj.SyntaxTree);
+					GenerateDbRecordReadMethods(classOrStruct, methods, builtInReadMethods, readConverterMethods, types, d, dbRecordReaderClassDecl, semanticModel, symDtoClass, ctor.ParameterList, context, ct);
+				}
+				else
+				{
+					context.ReportDiagnostic(Diag.CannotGetSymbol(dbRecordReaderClassDecl.GetLocation(), classOrStruct, obj.Identifier.ToString()));
+				}
+			}
+			else
+			{
+				context.ReportDiagnostic(Diag.OnlyOneCtorAllowed(obj.GetLocation(), obj.Identifier.ToString(), classOrStruct));
+			}
+		}
+	}
+	public void GenerateClassAndStructParamMethods(
+		string classOrStruct,
+		List<StringBuilder> methods,
+		List<string> targetClassInterfaces,
+		Dictionary<ITypeSymbol, WriteConverterMethod> writeConverterMethods,
+		ClassDeclarationSyntax dbRecordReaderClass,
+		GeneratorExecutionContext context,
+		IEnumerable<TypeDeclarationSyntax> objs)
+	{
+		foreach (var obj in objs)
+		{
+			SemanticModel semanticModel = context.Compilation.GetSemanticModel(obj.SyntaxTree);
+			ISymbol? symDtoClass = semanticModel.GetDeclaredSymbol(obj);
+			if (symDtoClass != null)
+			{
+				List<NamedTypeSymbol> parameters = [];
+				foreach (var prop in obj
+					.DescendantNodes()
+					.OfType<PropertyDeclarationSyntax>())
+				{
+					var psym = semanticModel.GetDeclaredSymbol(prop);
+					if (psym != null)
+					{
+						parameters.Add(new(prop.Identifier.ToString(), psym.Type));
+					}
+					else
+					{
+						context.ReportDiagnostic(Diag.CannotGetSymbol(prop.GetLocation(), "property", prop.Identifier.ToString()));
+					}
+				}
+				Decl d = new(obj.Identifier, obj.Span, obj.SyntaxTree);
+				GenerateParamMethods(methods, targetClassInterfaces, writeConverterMethods, symDtoClass, parameters);
+			}
+			else
+			{
+				context.ReportDiagnostic(Diag.CannotGetSymbol(dbRecordReaderClass.GetLocation(), classOrStruct, obj.Identifier.ToString()));
+			}
+		}
+	}
+	public void GenerateParamMethods(
+		List<StringBuilder> methods,
+		List<string> interfaceImpls,
+		Dictionary<ITypeSymbol, WriteConverterMethod> writeConverterMethods,
+		ISymbol symDtoClass,
+		List<NamedTypeSymbol> properties)
+	{
+		if (properties.Count == 0)
+		{
+			return;
+		}
+		StringBuilder sb = new();
+		Indent indent = new(1, '\t', 2);
+		methods.Add(sb);
+		
+		sb.Append(indent).Append("public void ApplyParameters").Append("(").Append(FullyQualifiedName(symDtoClass)).Append(" parameters, IDbCommand cmd)\n")
+			.Append(indent).Append("{\n");
+		indent.In();
+
+		sb.Append(indent).Append("IDbDataParameter p;\n");
+		foreach (var p in properties)
+		{
+			ITypeSymbol pType = p.Symbol;
+
+			sb.Append(indent).Append("p = cmd.CreateParameter();\n");
+			sb.Append(indent).Append("p.ParameterName = \"").Append(p.Name).Append("\";\n");
+			// We need the name and type of the property
+			bool isNullableValue = false;
+			if (p.Symbol.NullableAnnotation == NullableAnnotation.Annotated)
+			{
+				if (p.Symbol.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+				{
+					isNullableValue = true;
+					sb.Append(indent).Append("if (!parameters.").Append(p.Name).Append(".HasValue)\n").Append(indent).Append("{\n");
+					if (pType is INamedTypeSymbol nts1 && nts1.TypeArguments.Length == 1)
+					{
+						pType = nts1.TypeArguments[0];
+					}
+				}
+				else
+				{
+					sb.Append(indent).Append("if (parameters.").Append(p.Name).Append(" is null)\n").Append(indent).Append("{\n");
+				}
+				sb.Append(indent.In()).Append("p.Value = System.DBNull.Value;\n");
+				sb.Append(indent.Out()).Append("}\n");
+				sb.Append(indent).Append("else\n");
+				sb.Append(indent).Append("{\n");
+				indent.In();
+			}
+			if (writeConverterMethods.TryGetValue(pType, out WriteConverterMethod method))
+			{
+				sb.Append(indent).Append("p.Value = ").Append(method.ConverterPropertyName).Append('.').Append(method.ConverterMethodName);
+				sb.Append("(parameters.").Append(p.Name);
+				if (isNullableValue)
+				{
+					sb.Append(".Value");
+				}
+				sb.Append(");\n");
+			}
+			else
+			{
+				// No converter, so we just assign it
+				sb.Append(indent).Append("p.Value = parameters.").Append(p.Name);
+				if (isNullableValue)
+				{
+					sb.Append(".Value");
+				}
+				sb.Append(";\n");
+			}
+			if (p.Symbol.NullableAnnotation == NullableAnnotation.Annotated)
+			{
+				indent.Out();
+				sb.Append(indent).Append("}\n");
+			}
+			sb.Append(indent).Append("cmd.Parameters.Add(p);\n");
+		}
+		sb.Append(indent.Out()).Append("}\n");
+		interfaceImpls.Add(string.Concat("IDbParamsApplicator<", FullyQualifiedName(symDtoClass), ">"));
+	}
+	public void GenerateDbRecordReadMethods(
 		string classStructOrRecord,
 		List<StringBuilder> methods,
 		Dictionary<ITypeSymbol, string> builtInReadMethods,
@@ -442,13 +576,13 @@ public sealed class SourceGen : ISourceGenerator
 		Decl dbRecordReaderClass,
 		SemanticModel semanticModel,
 		ISymbol symDtoClass,
-		ParameterListSyntax? ParameterList,
+		ParameterListSyntax? parameterList,
 		GeneratorExecutionContext context,
 		CancellationToken ct)
 	{
-		if (ParameterList == null || ParameterList.Parameters.Count == 0)
+		if (parameterList == null || parameterList.Parameters.Count == 0)
 		{
-			context.ReportDiagnostic(Diag.MissingParameters(recordDecl.GetLocation(), classStructOrRecord, recordDecl.Identifier.ToString()));
+			context.ReportDiagnostic(Diag.MissingDbRecordReadParameters(recordDecl.GetLocation(), classStructOrRecord, recordDecl.Identifier.ToString()));
 			return;
 		}
 
@@ -471,9 +605,9 @@ public sealed class SourceGen : ISourceGenerator
 
 		// TODO What we can do to make things a bit better is have public const int fields and directly use those instead of having a method invocation 
 
-		List<ParameterInfo> dtoClassParams = new(ParameterList.Parameters.Count);
+		List<ParameterInfo> dtoClassParams = new(parameterList.Parameters.Count);
 		int i = 0;
-		foreach (ParameterSyntax p in ParameterList.Parameters)
+		foreach (ParameterSyntax p in parameterList.Parameters)
 		{
 			IParameterSymbol? psym = semanticModel.GetDeclaredSymbol(p, ct);
 			if (psym != null)
@@ -549,7 +683,7 @@ public sealed class SourceGen : ISourceGenerator
 			}
 			++i;
 		}
-		if (dtoClassParams.Count != ParameterList.Parameters.Count) return;
+		if (dtoClassParams.Count != parameterList.Parameters.Count) return;
 
 		Indent indent = new(1, '\t', 2);
 

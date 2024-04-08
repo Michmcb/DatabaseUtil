@@ -16,7 +16,7 @@ public static class Diag
 	//private const string readerClassUnusable = P + "0003";
 	private const string readerClassMissingNamespace = P + "0004";
 	//private const string isNotARecord = P + "0005";
-	private const string missingParameters = P + "0006";
+	private const string missingDbRecordReadParameters = P + "0006";
 	private const string missingIndex = P + "0007";
 	private const string missingName = P + "0008";
 	private const string wrongAttributeDecorated = P + "0009";
@@ -24,6 +24,7 @@ public static class Diag
 	private const string onlyOneCtorAllowed = P + "0011";
 	private const string missingConverterMethod = P + "0012";
 	private const string converterWrongTypeKind = P + "0013";
+	private const string missingDbParamProperties	 = P + "0014";
 	private const string cannotGetSymbol = P + "9998";
 	//private const string somethingButIDontRemberWhatItWas = P + "9999";
 	//public static Diagnostic MissingReadMethod(Location location, string className, string typeName)
@@ -46,10 +47,16 @@ public static class Diag
 			messageFormat: "Class {0} must be declared in a namespace.",
 			Cat.Usage, DiagnosticSeverity.Error, isEnabledByDefault: true), location, className);
 	}
-	public static Diagnostic MissingParameters(Location location, string classStructOrRecord, string className)
+	public static Diagnostic MissingDbRecordReadParameters(Location location, string classStructOrRecord, string className)
 	{
-		return Diagnostic.Create(new DiagnosticDescriptor(id: missingParameters, title: "Record missing parameters",
+		return Diagnostic.Create(new DiagnosticDescriptor(id: missingDbRecordReadParameters, title: "Record missing parameters",
 			messageFormat: "The {0} {1} needs parameters to have code generated to read it from an IDataRecord.",
+			Cat.Usage, DiagnosticSeverity.Warning, isEnabledByDefault: true), location, classStructOrRecord, className);
+	}
+	public static Diagnostic MissingDbParamProperties(Location location, string classStructOrRecord, string className)
+	{
+		return Diagnostic.Create(new DiagnosticDescriptor(id: missingDbParamProperties, title: "Record missing properties",
+			messageFormat: "The {0} {1} needs properties (or parameters, in the case of a record) to have code generated to apply it as parameters to an IDbCommand.",
 			Cat.Usage, DiagnosticSeverity.Warning, isEnabledByDefault: true), location, classStructOrRecord, className);
 	}
 	public static Diagnostic MissingIndex(Location location, string parameterName)

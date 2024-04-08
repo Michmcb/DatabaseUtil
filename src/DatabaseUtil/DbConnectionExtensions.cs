@@ -46,7 +46,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return cmd;
 	}
@@ -85,7 +85,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return cmd;
 	}/// <summary>
@@ -125,7 +125,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return cmd.ExecuteNonQuery();
 	}
@@ -166,7 +166,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return cmd.ExecuteNonQuery();
 	}
@@ -207,7 +207,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return await cmd.ExecuteNonQueryAsync();
 	}
@@ -267,7 +267,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return cmd.ExecuteScalar();
 	}
@@ -290,7 +290,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return cmd.ExecuteScalar();
 	}
@@ -332,7 +332,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return await cmd.ExecuteScalarAsync();
 	}
@@ -380,7 +380,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		using DbDataReader reader = cmd.ExecuteReader();
 		foreach (var d in getData(reader))
@@ -433,7 +433,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		using DbDataReader reader = cmd.ExecuteReader();
 		await foreach (var d in getData(reader))
@@ -487,7 +487,7 @@ public static class DbConnectionExtensions
 		cmd.CommandText = sql;
 		cmd.CommandType = commandType;
 		cmd.Transaction = transaction;
-		paramsApplicator.ApplyTo(parameters, cmd);
+		paramsApplicator.ApplyParameters(parameters, cmd);
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		using IDataReader reader = cmd.ExecuteReader();
 		foreach (var d in getData(reader))
