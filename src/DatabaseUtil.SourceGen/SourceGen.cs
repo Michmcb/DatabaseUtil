@@ -120,7 +120,7 @@ public sealed class SourceGen : ISourceGenerator
 "\t/// <summary>\n" +
 "\t/// Decorating a method on a class that's also decorated with <see cref=\"" + Attrib.DbParams.FullName + "\"/> will implement the <see cref=\"IDbParams\"/> interface, and set all properties as parameters.\n" +
 "\t/// </summary>\n" +
-"\t[AttributeUsage(AttributeTargets.Class)]\n" +
+"\t[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]\n" +
 "\tinternal sealed class " + Attrib.DbParams.FullName + " : Attribute { }\n" +
 "}", Encoding.UTF8));
 		});
@@ -564,7 +564,7 @@ public sealed class SourceGen : ISourceGenerator
 			sb.Append(indent).Append("cmd.Parameters.Add(p);\n");
 		}
 		sb.Append(indent.Out()).Append("}\n");
-		interfaceImpls.Add(string.Concat("IDbParamsApplicator<", FullyQualifiedName(symDtoClass), ">"));
+		interfaceImpls.Add(string.Concat("DatabaseUtil.IDbParamsApplicator<", FullyQualifiedName(symDtoClass), ">"));
 	}
 	public void GenerateDbRecordReadMethods(
 		string classStructOrRecord,

@@ -271,7 +271,6 @@ public static class DbConnectionExtensions
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return cmd.ExecuteScalar();
 	}
-
 	/// <summary>
 	/// Executes a command using the provided parameters, and returns the value of the first column of the first row in the first result set.
 	/// Takes care of disposing of the created <see cref="IDbCommand"/>.
@@ -313,7 +312,6 @@ public static class DbConnectionExtensions
 		if (commandTimeout != int.MinValue) { cmd.CommandTimeout = commandTimeout; }
 		return await cmd.ExecuteScalarAsync();
 	}
-
 	/// <summary>
 	/// Executes a command using the provided parameters, and returns the value of the first column of the first row in the first result set.
 	/// Takes care of disposing of the created <see cref="DbCommand"/>.

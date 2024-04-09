@@ -7,16 +7,6 @@ namespace DatabaseUtil.Test
 	using System.Data.Common;
 	using System.Data.SqlClient;
 	using System.Threading.Tasks;
-
-	public sealed record class TestParams(long Value);
-	public sealed class TestParamsApplicator : IDbParamsApplicator<TestParams>
-	{
-		public static readonly TestParamsApplicator Instance = new();
-		public void ApplyParameters(TestParams p, IDbCommand cmd)
-		{
-			cmd.AddParameter(nameof(p.Value), p.Value);
-		}
-	}
 	public static class Tests
 	{
 		private static IEnumerable<long> OfInt64_1(DbDataReader reader)

@@ -3,7 +3,6 @@
 using System;
 using System.Data;
 using System.Data.Common;
-
 /// <summary>
 /// Extension methods for <see cref="IDbCommand"/> and <see cref="DbCommand"/>.
 /// </summary>
