@@ -9,7 +9,8 @@
     <Authors>Michael McBride</Authors>
     <Company></Company>
     <Product>DbUtil.SourceGen</Product>
-    <Description></Description>
+    <Description>Generates code to read class/struct/reecords from a database, as well as applying parameters to a command.
+Can use user-defined converters to convert between database and .net values. Requires DatabaseUtil to function.</Description>
     <PackageProjectUrl>https://github.com/Michmcb/DbUtil</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Michmcb/DbUtil</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>

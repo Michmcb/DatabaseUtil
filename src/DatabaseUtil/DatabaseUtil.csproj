@@ -8,7 +8,7 @@
     <Authors>Michael McBride</Authors>
     <Company></Company>
     <Product>DatabaseUtil</Product>
-    <Description></Description>
+    <Description>Has a bunch of useful utilities to make working with databases easier. Works best when used with the source generator.</Description>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/Michmcb/DatabaseUtil</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Michmcb/DatabaseUtil</RepositoryUrl>

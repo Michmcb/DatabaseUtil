@@ -6,7 +6,6 @@ using System.Data.Common;
 /// <summary>
 /// An interface that applies parameters of type <typeparamref name="T"/> to <see cref="DbCommand"/> or an <see cref="IDbCommand"/>.
 /// </summary>
-
 public interface IDbParamsApplicator<T>
 {
 	/// <summary>
