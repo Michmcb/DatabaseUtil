@@ -10,7 +10,6 @@ using System.Collections.Immutable;
 using System.Data.Common;
 using System.Globalization;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Text;
 using System.Threading;
 
@@ -83,7 +82,7 @@ public sealed class SourceGen : ISourceGenerator
 "\t/// <summary>\n" +
 "\t/// Denotes the name that this has on the database side.\n" +
 "\t/// </summary>\n" +
-"\t[AttributeUsage(AttributeTargets.Parameter)]\n" +
+"\t[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property)]\n" +
 "\tinternal sealed class " + Attrib.HasName.FullName + " : Attribute\n" +
 "\t{\n" +
 "\t\tinternal " + Attrib.HasName.FullName + "(string name) { }\n" +
@@ -132,10 +131,6 @@ public sealed class SourceGen : ISourceGenerator
 	{
 		return sym.ContainingNamespace == null ? sym.Name : string.Concat(sym.ContainingNamespace.ToString(), ".", sym.Name);
 	}
-	//public bool ImplementsInterface(string interfaceName, ITypeSymbol sym)
-	//{
-	//	return interfaceName == FullyQualifiedName(sym) || sym.Interfaces.Any(nts => ImplementsInterface(interfaceName, nts));
-	//}
 	public void Execute(GeneratorExecutionContext context)
 	{
 		Dictionary<ITypeSymbol, string> builtInReadMethods = new(SymbolEqualityComparer.Default)
@@ -368,14 +363,13 @@ public sealed class SourceGen : ISourceGenerator
 							var psym = semanticModel.GetDeclaredSymbol(p);
 							if (psym != null)
 							{
-								parameters.Add(new(p.Identifier.ToString(), psym.Type));
+								parameters.Add(new(p.Identifier.ToString(), psym.Type, psym.GetAttributes()));
 							}
 							else
 							{
 								context.ReportDiagnostic(Diag.CannotGetSymbol(p.GetLocation(), "property", p.Identifier.ToString()));
 							}
 						}
-						Decl d = new(rec.Identifier, rec.Span, rec.SyntaxTree);
 						GenerateParamMethods(methods, targetClassInterfaces, writeConverterMethods, symDtoRec, new(parameters));
 					}
 					else
@@ -463,7 +457,7 @@ public sealed class SourceGen : ISourceGenerator
 			ISymbol? symDtoClass = semanticModel.GetDeclaredSymbol(obj);
 			if (symDtoClass != null)
 			{
-				List<NamedTypeSymbol> parameters = [];
+				List<NamedTypeSymbol> properties = [];
 				foreach (var prop in obj
 					.DescendantNodes()
 					.OfType<PropertyDeclarationSyntax>())
@@ -471,15 +465,14 @@ public sealed class SourceGen : ISourceGenerator
 					var psym = semanticModel.GetDeclaredSymbol(prop);
 					if (psym != null)
 					{
-						parameters.Add(new(prop.Identifier.ToString(), psym.Type));
+						properties.Add(new(prop.Identifier.ToString(), psym.Type, psym.GetAttributes()));
 					}
 					else
 					{
 						context.ReportDiagnostic(Diag.CannotGetSymbol(prop.GetLocation(), "property", prop.Identifier.ToString()));
 					}
 				}
-				Decl d = new(obj.Identifier, obj.Span, obj.SyntaxTree);
-				GenerateParamMethods(methods, targetClassInterfaces, writeConverterMethods, symDtoClass, parameters);
+				GenerateParamMethods(methods, targetClassInterfaces, writeConverterMethods, symDtoClass, properties);
 			}
 			else
 			{
@@ -492,27 +485,29 @@ public sealed class SourceGen : ISourceGenerator
 		List<string> interfaceImpls,
 		Dictionary<ITypeSymbol, WriteConverterMethod> writeConverterMethods,
 		ISymbol symDtoClass,
-		List<NamedTypeSymbol> properties)
+		List<NamedTypeSymbol> propertiesOrParameters)
 	{
-		if (properties.Count == 0)
+		if (propertiesOrParameters.Count == 0)
 		{
 			return;
 		}
 		StringBuilder sb = new();
 		Indent indent = new(1, '\t', 2);
 		methods.Add(sb);
-		
+
 		sb.Append(indent).Append("public void ApplyParameters").Append("(").Append(FullyQualifiedName(symDtoClass)).Append(" parameters, IDbCommand cmd)\n")
 			.Append(indent).Append("{\n");
 		indent.In();
 
 		sb.Append(indent).Append("IDbDataParameter p;\n");
-		foreach (var p in properties)
+		foreach (var p in propertiesOrParameters)
 		{
 			ITypeSymbol pType = p.Symbol;
 
+			string dbName = GetAttributeStringArg(TryGetAttributeData(p.Attributes, Attrib.HasName), p.Name);
+
 			sb.Append(indent).Append("p = cmd.CreateParameter();\n");
-			sb.Append(indent).Append("p.ParameterName = \"").Append(p.Name).Append("\";\n");
+			sb.Append(indent).Append("p.ParameterName = \"").Append(dbName).Append("\";\n");
 			// We need the name and type of the property
 			bool isNullableValue = false;
 			if (p.Symbol.NullableAnnotation == NullableAnnotation.Annotated)
@@ -592,15 +587,7 @@ public sealed class SourceGen : ISourceGenerator
 		int readBy = 0;
 		if (attrib != null)
 		{
-			ImmutableArray<TypedConstant> attribArgs = attrib.ConstructorArguments;
-			if (attribArgs.Length > 0)
-			{
-				object? o = attribArgs[0].Value;
-				if (!(o is null) && o is int rb)
-				{
-					readBy = rb;
-				}
-			}
+			readBy = GetAttributeArg(attrib, readBy);
 		}
 
 		// TODO What we can do to make things a bit better is have public const int fields and directly use those instead of having a method invocation 
@@ -613,8 +600,8 @@ public sealed class SourceGen : ISourceGenerator
 			if (psym != null)
 			{
 				var pattribs = psym.GetAttributes();
-				var pattribName = pattribs.Where(x => x.AttributeClass != null && Attrib.HasName.Names.Contains(x.AttributeClass.Name)).FirstOrDefault();
-				var pattribIndex = pattribs.Where(x => x.AttributeClass != null && Attrib.HasOrdinal.Names.Contains(x.AttributeClass.Name)).FirstOrDefault();
+				var pattribName = TryGetAttributeData(pattribs, Attrib.HasName);
+				var pattribIndex = TryGetAttributeData(pattribs, Attrib.HasOrdinal);
 
 				switch (readBy)
 				{
@@ -629,16 +616,7 @@ public sealed class SourceGen : ISourceGenerator
 							}
 							if (pattribName != null)
 							{
-								dbName = null;
-								ImmutableArray<TypedConstant> pattribArgs = pattribName.ConstructorArguments;
-								if (pattribArgs.Length > 0)
-								{
-									object? o = pattribArgs[0].Value;
-									if (!(o is null) && o is string str)
-									{
-										dbName = str.Replace("\"", "\\\"");
-									}
-								}
+								dbName = GetAttributeStringArg(pattribName, null!);
 							}
 							if (dbName == null)
 							{
@@ -858,6 +836,42 @@ public sealed class SourceGen : ISourceGenerator
 		methodRead.Append('\n').Append(indent.Out());
 		methodRead.Append(");\n");
 		methodRead.Append(indent.Out()).Append("}\n");
+	}
+	public static AttributeData? TryGetAttributeData(ImmutableArray<AttributeData> attribs, Attrib attribute)
+	{
+		return attribs.Where(x => x.AttributeClass != null && attribute.Names.Contains(x.AttributeClass.Name)).FirstOrDefault();
+	}
+	public static T GetAttributeArg<T>(AttributeData? ad, T defaultValue)
+	{
+		if (ad != null)
+		{
+			ImmutableArray<TypedConstant> attribArgs = ad.ConstructorArguments;
+			if (attribArgs.Length > 0)
+			{
+				object? o = attribArgs[0].Value;
+				if (!(o is null) && o is T val)
+				{
+					return val;
+				}
+			}
+		}
+		return defaultValue;
+	}
+	public static string GetAttributeStringArg(AttributeData? ad, string defaultValue)
+	{
+		if (ad != null)
+		{
+			ImmutableArray<TypedConstant> attribArgs = ad.ConstructorArguments;
+			if (attribArgs.Length > 0)
+			{
+				object? o = attribArgs[0].Value;
+				if (!(o is null) && o is string str)
+				{
+					return str.Replace("\"", "\\\"");
+				}
+			}
+		}
+		return defaultValue;
 	}
 	public static void WriteOutIntOrdinals(StringBuilder sb, List<ParameterInfo> pis)
 	{
