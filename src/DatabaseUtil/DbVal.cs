@@ -4,6 +4,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 /// <summary>
 /// A way of indicating a value from the database.
+/// You can use <see cref="From(object?)"/> to create an instance of this type.
 /// The default value for this struct is no value and an error of <see cref="DbValError.Null"/>.
 /// </summary>
 /// <typeparam name="T">The type of the value.</typeparam>

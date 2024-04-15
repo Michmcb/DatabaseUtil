@@ -14,8 +14,8 @@
     <RepositoryUrl>https://github.com/Michmcb/DbUtil</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>generator, codegen, codegenerator, database, library</PackageTags>
-    <PackageReleaseNotes>- DbConverter can be used instead of DbGetField, and is preferred
-- Diagnostics are improved</PackageReleaseNotes>
+    <PackageReleaseNotes>- GetField removed; converters are the way to handle converting to and from database values and .net values now.
+- [DbParams] now generates an implementation of IDbParamsApplicator on the DbRecordReader. [HasName] works to set the name of the parameter as well.</PackageReleaseNotes>
     <PackageIconUrl />
     <Title>DbUtil.SourceGen</Title>
     <IncludeBuildOutput>false</IncludeBuildOutput>

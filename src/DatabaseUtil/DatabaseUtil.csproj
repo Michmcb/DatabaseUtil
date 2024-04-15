@@ -14,9 +14,11 @@
     <RepositoryUrl>https://github.com/Michmcb/DatabaseUtil</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>database</PackageTags>
-    <PackageReleaseNotes>- ISqlConverter added to convert between Database and .net values.
-- IDbParamsApplicator added to apply an object to an IDbCommand or DbCommand as parameters. IDbParams will be removed, eventually. This is so it will be easier to use ISqlConverters.
-- Fixed extension method ExecuteNonQuery for IDbConection accepting DbTransaction instead of IDbTransaction</PackageReleaseNotes>
+    <PackageReleaseNotes>- DbVal&lt;T&gt; added. This type helps differentiate between no results, a null result, an actual result, or the incorrect type.
+- IDbParamApplicator's methods ApplyTo renamed to ApplyParameters.
+- DbConnection extension method overloads added which accept IDbParamApplicator and parameters, to create a command with parameters applied.
+- DbConnection extension method overloads "ExecuteScalarAs" added. This works much like ExecuteScalar, but wraps the result type in a DbVal&lt;T&gt;.
+- DbConnection extension method overloads "ExecuteFirstOrDefault" added. This helps use the ReadFirstOrDefaultType methods that DatabaseUtil.SourceGen generates.</PackageReleaseNotes>
     <PackageIconUrl />
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Title>DatabaseUtil</Title>
