@@ -117,7 +117,8 @@ public sealed class SourceGen : ISourceGenerator
 
 
 "\t/// <summary>\n" +
-"\t/// Decorating a method on a class that's also decorated with <see cref=\"" + Attrib.DbParams.FullName + "\"/> will implement the <see cref=\"IDbParams\"/> interface, and set all properties as parameters.\n" +
+"\t/// Decorating a method on a class that's also decorated with <see cref=\"" + Attrib.DbParams.FullName + "\"/> will have an implementation for the <see cref=\"IDbParamsApplicator{T}\"/> interface\n" +
+"\t/// generated for it on <see cref=\"" + Attrib.DbRecordReader.FullName + "\"/>, and set all properties as parameters.\n" +
 "\t/// </summary>\n" +
 "\t[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]\n" +
 "\tinternal sealed class " + Attrib.DbParams.FullName + " : Attribute { }\n" +
