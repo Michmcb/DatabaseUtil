@@ -62,5 +62,28 @@ namespace DatabaseUtil.SourceGen.Test
 				Assert.Equal(new DateOnly(1, 1, 2), result.Value.Date);
 			}
 		}
+		[Fact]
+		public static void TestParameters()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			using (var cmd1 = cn.GetCommand("create table Tbl(Integer int not null, Date int null);"))
+			{
+				cmd1.ExecuteNonQuery();
+			}
+			DbReader dbReader = new();
+			using (var cmd2 = cn.GetCommand("insert into Tbl(Integer,Date)values(@Integer, @TheDate);", parameters: new TestRecordClassParams(10, new DateOnly(2000, 1, 2)), dbReader))
+			{
+				Assert.Equal(1, cmd2.ExecuteNonQuery());
+			}
+			using (var cmd3 = cn.GetCommand("select Integer,Date as TheDate from Tbl;"))
+			{
+				using var reader = cmd3.ExecuteReader();
+				List<TestRecordClassParams> results = dbReader.ReadAllTestRecordClassParams(reader).ToList();
+				TestRecordClassParams x = Assert.Single(results);
+				Assert.Equal(10, x.Integer);
+				Assert.Equal(new DateOnly(2000, 1, 2), x.Date);
+			}
+		}
 	}
 }

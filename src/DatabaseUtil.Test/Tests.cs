@@ -7,9 +7,56 @@ namespace DatabaseUtil.Test
 	using System.Data.Common;
 	using System.Data.SqlClient;
 	using System.Threading.Tasks;
-
 	public static class Tests
 	{
+		private static long? FirstOfInt64_1(DbDataReader reader)
+		{
+			while (reader.Read())
+			{
+				return reader.GetInt64(0);
+			}
+			return default;
+		}
+		private static long? FirstOfInt64_2(IDataReader reader)
+		{
+			while (reader.Read())
+			{
+				return reader.GetInt64(0);
+			}
+			return default;
+		}
+		private static async Task<long?> FirstOfInt64Async(DbDataReader reader)
+		{
+			while (await reader.ReadAsync())
+			{
+				return reader.GetInt64(0);
+			}
+			return default;
+		}
+		private static IEnumerable<long> OfInt64_1(DbDataReader reader)
+		{
+			while (reader.Read())
+			{
+				yield return reader.GetInt64(0);
+			}
+			reader.ReadAllResults();
+		}
+		private static IEnumerable<long> OfInt64_2(IDataReader reader)
+		{
+			while (reader.Read())
+			{
+				yield return reader.GetInt64(0);
+			}
+			reader.ReadAllResults();
+		}
+		private static async IAsyncEnumerable<long> OfInt64Async(DbDataReader reader)
+		{
+			while (await reader.ReadAsync())
+			{
+				yield return reader.GetInt64(0);
+			}
+			reader.ReadAllResults();
+		}
 		private static void AssertDbParamEqual(string name, object value, ParameterDirection parameterDirection, byte precision, byte scale, DbParameter parameter)
 		{
 			Assert.Equal(name, parameter.ParameterName);
@@ -93,9 +140,10 @@ namespace DatabaseUtil.Test
 		{
 			using SqliteConnection cn = new("Data Source=:memory:");
 			cn.Open();
-			using (var cmd1 = ((IDbConnection)cn).GetCommand("create table Tbl(Number int not null);insert into Tbl(Number)values(5);", commandTimeout: 25))
+			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
+			using (var cmd1 = ((IDbConnection)cn).GetCommand("insert into Tbl(Number)values(5);", commandTimeout: 25))
 			{
-				Assert.Equal("create table Tbl(Number int not null);insert into Tbl(Number)values(5);", cmd1.CommandText);
+				Assert.Equal("insert into Tbl(Number)values(5);", cmd1.CommandText);
 				Assert.Equal(CommandType.Text, cmd1.CommandType);
 				Assert.Null(cmd1.Transaction);
 				Assert.Equal(25, cmd1.CommandTimeout);
@@ -108,10 +156,53 @@ namespace DatabaseUtil.Test
 				Assert.Null(cmd2.Transaction);
 				Assert.Equal(10, cmd2.CommandTimeout);
 				var r = cmd2.ExecuteReader();
-				while (r.Read())
-				{
-					r.GetInt64(0);
-				}
+				Assert.True(r.Read());
+				Assert.Equal(5, r.GetInt64(0));
+				Assert.False(r.Read());
+			}
+		}
+		[Fact]
+		public static void GetCommandParams()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
+			using (var cmd1 = ((IDbConnection)cn).GetCommand("insert into Tbl(Number)values(@Value);", new TestParams(5), TestParamsApplicator.Instance, commandTimeout: 25))
+			{
+				Assert.Equal("insert into Tbl(Number)values(@Value);", cmd1.CommandText);
+				Assert.Equal(CommandType.Text, cmd1.CommandType);
+				var p = (IDbDataParameter?)Assert.Single(cmd1.Parameters);
+				Assert.NotNull(p);
+				Assert.Equal(nameof(TestParams.Value), p.ParameterName);
+				Assert.Equal(5L, p.Value);
+				Assert.Null(cmd1.Transaction);
+				Assert.Equal(25, cmd1.CommandTimeout);
+				cmd1.ExecuteNonQuery();
+			}
+			using (var cmd2 = cn.GetCommand("insert into Tbl(Number)values(@Value);", new TestParams(10), TestParamsApplicator.Instance, commandTimeout: 25))
+			{
+				Assert.Equal("insert into Tbl(Number)values(@Value);", cmd2.CommandText);
+				Assert.Equal(CommandType.Text, cmd2.CommandType);
+				var p = (IDbDataParameter?)Assert.Single(cmd2.Parameters);
+				Assert.NotNull(p);
+				Assert.Equal(nameof(TestParams.Value), p.ParameterName);
+				Assert.Equal(10L, p.Value);
+				Assert.Null(cmd2.Transaction);
+				Assert.Equal(25, cmd2.CommandTimeout);
+				cmd2.ExecuteNonQuery();
+			}
+			using (var cmd3 = cn.GetCommand("select Number from Tbl;", commandTimeout: 10))
+			{
+				Assert.Equal("select Number from Tbl;", cmd3.CommandText);
+				Assert.Equal(CommandType.Text, cmd3.CommandType);
+				Assert.Null(cmd3.Transaction);
+				Assert.Equal(10, cmd3.CommandTimeout);
+				var r = cmd3.ExecuteReader();
+				Assert.True(r.Read());
+				Assert.Equal(5, r.GetInt64(0));
+				Assert.True(r.Read());
+				Assert.Equal(10, r.GetInt64(0));
+				Assert.False(r.Read());
 			}
 		}
 		[Fact]
@@ -121,7 +212,48 @@ namespace DatabaseUtil.Test
 			cn.Open();
 			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
 			Assert.Equal(1, await cn.ExecuteNonQueryAsync("insert into Tbl(Number)values(5);"));
-			Assert.Equal(1, ((IDbConnection)cn).ExecuteNonQuery("delete from Tbl"));
+			Assert.Equal(5L, cn.ExecuteScalar("select Number from Tbl;"));
+			Assert.Equal(1, ((IDbConnection)cn).ExecuteNonQuery("delete from Tbl;"));
+		}
+		[Fact]
+		public static async Task ExecuteNonQueryParams()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
+
+			Assert.Equal(1, cn.ExecuteNonQuery("insert into Tbl(Number)values(@Value);", new TestParams(1), TestParamsApplicator.Instance));
+			Assert.Equal(1, await cn.ExecuteNonQueryAsync("insert into Tbl(Number)values(@Value);", new TestParams(2), TestParamsApplicator.Instance));
+			Assert.Equal(1, ((IDbConnection)cn).ExecuteNonQuery("insert into Tbl(Number)values(@Value);", new TestParams(3), TestParamsApplicator.Instance));
+			Assert.Collection(cn.Execute("select Number from Tbl order by Number;", OfInt64_1),
+				x => Assert.Equal(1L, x),
+				x => Assert.Equal(2L, x),
+				x => Assert.Equal(3L, x));
+		}
+		[Fact]
+		public static async Task ExecuteFirstOrDefault()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
+			cn.ExecuteNonQuery("insert into Tbl(Number)values(1),(2),(3);");
+			Assert.Equal(1L, cn.ExecuteFirstOrDefault("select Number from Tbl order by Number;", FirstOfInt64_1));
+			Assert.Equal(1L, await cn.ExecuteFirstOrDefaultAsync("select Number from Tbl order by Number;", FirstOfInt64Async));
+			Assert.Equal(1L, ((IDbConnection)cn).ExecuteFirstOrDefault("select Number from Tbl order by Number;", FirstOfInt64_2));
+			Assert.Null(cn.ExecuteFirstOrDefault("select Number from Tbl where Number = 0;", FirstOfInt64_1));
+		}
+		[Fact]
+		public static async Task ExecuteFirstOrDefaultParams()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
+			cn.ExecuteNonQuery("insert into Tbl(Number)values(1),(2),(3);");
+			string sql = "select Number from Tbl where Number = @Value;";
+			Assert.Equal(1L, cn.ExecuteFirstOrDefault(sql, new TestParams(1), TestParamsApplicator.Instance, FirstOfInt64_1));
+			Assert.Equal(2L, await cn.ExecuteFirstOrDefaultAsync(sql, new TestParams(2), TestParamsApplicator.Instance, FirstOfInt64Async));
+			Assert.Equal(3L, ((IDbConnection)cn).ExecuteFirstOrDefault(sql, new TestParams(3), TestParamsApplicator.Instance, FirstOfInt64_2));
+			Assert.Null(cn.ExecuteFirstOrDefault(sql, new TestParams(99), TestParamsApplicator.Instance, FirstOfInt64_1));
 		}
 		[Fact]
 		public static async Task ExecuteScalar()
@@ -133,6 +265,75 @@ namespace DatabaseUtil.Test
 			Assert.Equal(5L, cn.ExecuteScalar("select Number from Tbl;"));
 			Assert.Equal(5L, await cn.ExecuteScalarAsync("select Number from Tbl;"));
 			Assert.Equal(5L, ((IDbConnection)cn).ExecuteScalar("select Number from Tbl;"));
+		}
+		[Fact]
+		public static async Task ExecuteScalarParams()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
+			cn.ExecuteNonQuery("insert into Tbl(Number)values(5);");
+			Assert.Equal(5L, cn.ExecuteScalar("select Number from Tbl where Number = @Value;", new TestParams(5), TestParamsApplicator.Instance));
+			Assert.Equal(5L, await cn.ExecuteScalarAsync("select Number from Tbl where Number = @Value;", new TestParams(5), TestParamsApplicator.Instance));
+			Assert.Equal(5L, ((IDbConnection)cn).ExecuteScalar("select Number from Tbl where Number = @Value;", new TestParams(5), TestParamsApplicator.Instance));
+		}
+		[Fact]
+		public static async Task ExecuteScalarAs()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
+			cn.ExecuteNonQuery("insert into Tbl(Number)values(1),(2),(3);");
+
+			List<Func<SqliteConnection, string, Task<DbVal<long>>>> functions =
+			[
+				(cn, sql) => Task.FromResult(cn.ExecuteScalarAs<long>(sql)),
+				async (cn, sql) => await cn.ExecuteScalarAsAsync<long>(sql),
+				(cn, sql) => Task.FromResult(((IDbConnection)cn).ExecuteScalarAs<long>(sql)),
+			];
+			List<Func<SqliteConnection, string, TestParams, TestParamsApplicator, Task<DbVal<long>>>> functionsParams =
+			[
+				(cn, sql, p, a) => Task.FromResult(cn.ExecuteScalarAs<long, TestParams>(sql, p, a)),
+				async (cn, sql, p, a) => await cn.ExecuteScalarAsAsync<long, TestParams>(sql, p, a),
+				(cn, sql, p, a) => Task.FromResult(((IDbConnection)cn).ExecuteScalarAs<long, TestParams>(sql, p, a)),
+			];
+
+			string[] sqlQueries =
+			[
+				"select Number from Tbl order by Number asc;",
+				"select Number from Tbl order by Number desc;",
+				"select Number from Tbl where Number = 5;",
+				"select null;",
+			];
+			foreach (var f in functions)
+			{
+				int i = 0;
+				AssertDbVal(1L, DbValError.Ok, await f(cn, sqlQueries[i++]));
+				AssertDbVal(3L, DbValError.Ok, await f(cn, sqlQueries[i++]));
+				AssertDbVal(default, DbValError.NoRow, await f(cn, sqlQueries[i++]));
+				AssertDbVal(default, DbValError.Null, await f(cn, sqlQueries[i++]));
+			}
+			string[] sqlQueriesParams =
+			[
+				"select Number from Tbl where Number = @Value;",
+				"select Number from Tbl where Number <> @Value order by Number desc;",
+				"select Number from Tbl where Number = @Value;",
+				"select max(Number) from Tbl where Number > @Value;",
+			];
+			foreach (var f in functionsParams)
+			{
+				int i = 0;
+				AssertDbVal(1L, DbValError.Ok, await f(cn, sqlQueriesParams[i++], new TestParams(1), TestParamsApplicator.Instance));
+				AssertDbVal(2L, DbValError.Ok, await f(cn, sqlQueriesParams[i++], new TestParams(3), TestParamsApplicator.Instance));
+				AssertDbVal(default, DbValError.NoRow, await f(cn, sqlQueriesParams[i++], new TestParams(5), TestParamsApplicator.Instance));
+				AssertDbVal(default, DbValError.Null, await f(cn, sqlQueriesParams[i++], new TestParams(4), TestParamsApplicator.Instance));
+			}
+		}
+		private static void AssertDbVal<T>(T expected, DbValError expectedErrors, DbVal<T> actual) where T : notnull
+		{
+			actual.TryGet(out T val);
+			Assert.Equal(expected, val);
+			Assert.Equal(expectedErrors, actual.Errors);
 		}
 		[Fact]
 		public static async Task Execute()
@@ -183,6 +384,23 @@ namespace DatabaseUtil.Test
 				while (await reader.ReadAsync()) { yield return (reader.GetInt64(0), reader.GetString(1), reader.GetDouble(2)); }
 				await reader.ReadAllResultsAsync();
 			}
+		}
+		[Fact]
+		public static void ExecuteParams()
+		{
+			using SqliteConnection cn = new("Data Source=:memory:");
+			cn.Open();
+			cn.ExecuteNonQuery("create table Tbl(Number int not null);");
+			cn.ExecuteNonQuery("insert into Tbl(Number)values(1),(2),(3);");
+
+			Assert.Collection(cn.Execute("select Number from Tbl where Number < @Value order by Number;", new TestParams(3), TestParamsApplicator.Instance, OfInt64_1),
+				x => Assert.Equal(1, x), x => Assert.Equal(2, x));
+
+			Assert.Collection(((IDbConnection)cn).Execute("select Number from Tbl where Number > @Value order by Number;", new TestParams(1), TestParamsApplicator.Instance, OfInt64_2),
+				x => Assert.Equal(2, x), x => Assert.Equal(3, x));
+
+			Assert.Collection(cn.ExecuteAsync("select Number from Tbl where Number <> @Value order by Number;", new TestParams(2), TestParamsApplicator.Instance, OfInt64Async),
+				x => Assert.Equal(1, x), x => Assert.Equal(3, x));
 		}
 		[Fact]
 		public static void ExtensionsNull()
